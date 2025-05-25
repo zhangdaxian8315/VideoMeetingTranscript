@@ -1,6 +1,7 @@
 import os
 import time
 import socket
+import subprocess
 from datetime import datetime
 from obsws_python import ReqClient
 
@@ -10,6 +11,42 @@ def check_port(host, port):
     result = sock.connect_ex((host, port))
     sock.close()
     return result == 0
+
+def is_obs_running():
+    """检查 OBS 是否正在运行"""
+    try:
+        result = subprocess.run(['pgrep', '-f', 'OBS'], capture_output=True, text=True)
+        return len(result.stdout.strip()) > 0
+    except Exception:
+        return False
+
+def start_obs():
+    """启动 OBS Studio"""
+    try:
+        print("正在启动 OBS Studio...")
+        # 在 macOS 上启动 OBS
+        subprocess.Popen(['open', '-a', 'OBS'])
+        
+        # 等待 OBS 启动
+        print("等待 OBS 启动...")
+        max_wait_time = 30  # 最多等待30秒
+        wait_time = 0
+        
+        while wait_time < max_wait_time:
+            if is_obs_running():
+                print("OBS 已启动")
+                # 再等待几秒让 WebSocket 服务器启动
+                time.sleep(5)
+                return True
+            time.sleep(1)
+            wait_time += 1
+            
+        print("OBS 启动超时")
+        return False
+        
+    except Exception as e:
+        print(f"启动 OBS 失败: {e}")
+        return False
 
 class OBSController:
     def __init__(self, password="zhang8315"):
@@ -26,7 +63,20 @@ class OBSController:
     def connect(self):
         """连接到 OBS"""
         try:
-            # 首先检查端口是否可访问
+            # 首先检查 OBS 是否运行
+            if not is_obs_running():
+                print("OBS 未运行，正在启动...")
+                if not start_obs():
+                    return False
+            
+            # 检查端口是否可访问，如果不行就等待一下
+            max_retries = 10
+            for i in range(max_retries):
+                if check_port(self.host, self.port):
+                    break
+                print(f"等待 WebSocket 服务器启动... ({i+1}/{max_retries})")
+                time.sleep(2)
+            
             if not check_port(self.host, self.port):
                 print(f"错误：无法连接到 {self.host}:{self.port}")
                 print("请检查：")
@@ -96,7 +146,7 @@ def main():
     controller = OBSController(password="zhang8315")
     
     try:
-        # 连接 OBS
+        # 连接 OBS（会自动启动 OBS 如果没有运行）
         if not controller.connect():
             return
         
