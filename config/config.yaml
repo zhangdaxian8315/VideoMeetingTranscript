@@ -1,0 +1,18 @@
+obs:
+  websocket:
+    host: localhost
+    port: 4455
+    password: your_password_here  # 请修改为您的 OBS WebSocket 密码
+
+recording:
+  scene_name: "MeetingCapture"  # OBS 场景名称
+  output_path: "output/recordings"
+  file_format: "mp4"
+  video_encoder: "x264"
+  audio_encoder: "aac"
+  quality: "high"  # 可选: low, medium, high
+
+# 录制设置
+settings:
+  max_duration: 7200  # 最大录制时长（秒），默认 2 小时
+  auto_stop: true     # 是否在达到最大时长后自动停止 
