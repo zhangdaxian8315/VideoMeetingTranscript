@@ -3,6 +3,7 @@ import time
 import socket
 import subprocess
 from datetime import datetime
+from pathlib import Path
 from obsws_python import ReqClient
 
 def check_port(host, port):
@@ -59,6 +60,13 @@ class OBSController:
         self.password = password
         self.client = None
         self.recording_start_time = None
+        
+        # 设置项目录制目录
+        self.project_root = Path(__file__).parent.parent  # 获取项目根目录
+        self.recordings_dir = self.project_root / "recordings"
+        
+        # 确保录制目录存在
+        self.recordings_dir.mkdir(exist_ok=True)
 
     def connect(self):
         """连接到 OBS"""
@@ -91,6 +99,10 @@ class OBSController:
                 password=self.password
             )
             print("已连接到 OBS")
+            
+            # 连接成功后设置录制输出配置
+            self.setup_recording_output()
+            
             return True
         except Exception as e:
             print(f"连接 OBS 失败: {e}")
@@ -103,12 +115,59 @@ class OBSController:
             print("4. 尝试重启 OBS")
             return False
 
+    def setup_recording_output(self):
+        """设置录制输出目录"""
+        try:
+            # 设置录制目录
+            print(f"📁 设置录制目录: {self.recordings_dir}")
+            self.client.set_record_directory(str(self.recordings_dir))
+            
+            print("✅ 录制目录设置完成")
+            
+            # 生成预期的文件名（仅用于显示）
+            now = datetime.now()
+            self.target_filename = f"录制_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+            self.target_filepath = self.recordings_dir / self.target_filename
+            
+        except Exception as e:
+            print(f"⚠️  设置录制目录失败: {e}")
+            print("录制将使用 OBS 的默认设置")
+            # 设置默认目标文件名
+            now = datetime.now()
+            self.target_filename = f"录制_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+            self.target_filepath = self.recordings_dir / self.target_filename
+
+    def get_recording_config(self):
+        """获取当前录制配置信息"""
+        try:
+            # 获取录制目录
+            record_dir_response = self.client.get_record_directory()
+            # 直接访问返回对象的属性，而不是datain
+            record_dir = getattr(record_dir_response, 'recordDirectory', '未知')
+            
+            print(f"📁 当前录制目录: {record_dir}")
+            
+            return {
+                'record_directory': record_dir
+            }
+            
+        except Exception as e:
+            print(f"获取录制配置失败: {e}")
+            return None
+
     def start_recording(self):
         """开始录制视频"""
         try:
+            # 显示当前录制配置
+            print("\n🎬 录制配置信息:")
+            self.get_recording_config()
+            
             self.client.start_record()
             self.recording_start_time = time.time()
-            print("开始录制视频")
+            
+            print(f"\n🎥 开始录制视频")
+            print(f"📁 文件将保存为: {self.target_filepath}")
+            
         except Exception as e:
             print(f"开始录制视频失败: {e}")
             raise
@@ -119,12 +178,88 @@ class OBSController:
             self.client.stop_record()
             if self.recording_start_time:
                 duration = time.time() - self.recording_start_time
-                print(f"停止录制视频，录制时长: {duration:.2f} 秒")
+                print(f"⏹️  停止录制视频，录制时长: {duration:.2f} 秒")
+                
+                # 显示录制文件位置
+                print(f"📁 录制文件已保存到: {self.recordings_dir}")
+                
+                # 等待一下确保文件写入完成
+                time.sleep(1)
+                
+                # 查找并重命名最新的录制文件
+                self.rename_latest_recording()
+                
             else:
-                print("停止录制视频")
+                print("⏹️  停止录制视频")
         except Exception as e:
             print(f"停止录制视频失败: {e}")
             raise
+
+    def rename_latest_recording(self):
+        """重命名最新的录制文件为带"会议录制"前缀的格式"""
+        try:
+            # 查找最新的录制文件（所有.mkv文件）
+            recording_files = list(self.recordings_dir.glob("*.mkv"))
+            if recording_files:
+                # 按修改时间排序，获取最新的文件
+                latest_file = max(recording_files, key=lambda f: f.stat().st_mtime)
+                
+                # 检查文件是否是刚刚录制的（5分钟内）
+                file_age = time.time() - latest_file.stat().st_mtime
+                if file_age > 300:  # 5分钟
+                    print("⚠️  最新文件不是刚录制的，跳过重命名")
+                    return
+                
+                # 生成新的文件名
+                file_timestamp = datetime.fromtimestamp(latest_file.stat().st_mtime)
+                new_filename = f"会议录制_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+                new_filepath = self.recordings_dir / new_filename
+                
+                # 检查新文件名是否已存在
+                if new_filepath.exists():
+                    print(f"⚠️  目标文件名已存在: {new_filename}")
+                    # 添加序号避免冲突
+                    counter = 1
+                    while new_filepath.exists():
+                        new_filename = f"会议录制_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}_{counter}.mkv"
+                        new_filepath = self.recordings_dir / new_filename
+                        counter += 1
+                
+                # 执行重命名
+                latest_file.rename(new_filepath)
+                file_size = new_filepath.stat().st_size / 1024 / 1024  # MB
+                
+                print(f"✅ 文件重命名成功:")
+                print(f"   原文件名: {latest_file.name}")
+                print(f"   新文件名: {new_filename}")
+                print(f"📹 录制文件: {new_filename} ({file_size:.2f} MB)")
+                print(f"🎯 可使用以下命令提取音频:")
+                print(f"   python3 src/extract_audio_tracks.py \"{new_filepath}\"")
+                
+            else:
+                print("📁 录制目录中未找到录制文件")
+                
+        except Exception as e:
+            print(f"重命名录制文件时出错: {e}")
+            # 如果重命名失败，仍然显示原文件信息
+            self.show_latest_recording()
+
+    def show_latest_recording(self):
+        """显示最新的录制文件"""
+        try:
+            # 查找最新的录制文件（所有.mkv文件）
+            recording_files = list(self.recordings_dir.glob("*.mkv"))
+            if recording_files:
+                # 按修改时间排序，获取最新的文件
+                latest_file = max(recording_files, key=lambda f: f.stat().st_mtime)
+                file_size = latest_file.stat().st_size / 1024 / 1024  # MB
+                print(f"📹 最新录制文件: {latest_file.name} ({file_size:.2f} MB)")
+                print(f"🎯 可使用以下命令提取音频:")
+                print(f"   python3 src/extract_audio_tracks.py \"{latest_file}\"")
+            else:
+                print("📁 录制目录中未找到录制文件")
+        except Exception as e:
+            print(f"查找录制文件时出错: {e}")
 
     def get_record_status(self):
         """获取录制状态"""
@@ -139,7 +274,7 @@ class OBSController:
         """断开 OBS 连接"""
         if self.client:
             # ReqClient 会自动处理连接关闭
-            print("已断开 OBS 连接")
+            print("🔌 已断开 OBS 连接")
 
 def main():
     # 创建控制器实例
@@ -153,17 +288,17 @@ def main():
         # 开始录制
         controller.start_recording()
         
-        print("录制已开始，按 Ctrl+C 停止录制...")
+        print("\n⏺️  录制已开始，按 Ctrl+C 停止录制...")
         
         # 保持程序运行，直到用户按 Ctrl+C
         while True:
             time.sleep(1)
             
     except KeyboardInterrupt:
-        print("\n检测到用户中断，正在停止录制...")
+        print("\n⚠️  检测到用户中断，正在停止录制...")
         controller.stop_recording()
     except Exception as e:
-        print(f"发生错误: {e}")
+        print(f"💥 发生错误: {e}")
     finally:
         controller.disconnect()
 
