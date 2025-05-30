@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会议录制转录播放器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 会议录制转录播放器</h1>
+            <p>点击右侧字幕可跳转到对应时间点</p>
+        </header>
+        
+        <main class="main-content">
+            <!-- 左侧视频播放器 -->
+            <div class="video-section">
+                <div class="video-container">
+                    <video id="videoPlayer" controls>
+                        <p>请使用下方的文件选择器选择视频文件</p>
+                    </video>
+                </div>
+                
+                <div class="video-info">
+                    <div class="current-time">
+                        <span>当前时间: </span>
+                        <span id="currentTimeDisplay">00:00</span>
+                    </div>
+                    <div class="current-speaker">
+                        <span>当前说话人: </span>
+                        <span id="currentSpeaker">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧字幕列表 -->
+            <div class="subtitle-section">
+                <div class="subtitle-header">
+                    <h2>📝 转录字幕</h2>
+                    <div class="subtitle-stats">
+                        <span id="subtitleCount">加载中...</span>
+                    </div>
+                </div>
+                
+                <div class="subtitle-list" id="subtitleList">
+                    <div class="loading">正在加载字幕数据...</div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 文件选择器 -->
+        <div class="file-selector">
+            <div class="file-input-group">
+                <label for="jsonFile">选择字幕文件 (JSON):</label>
+                <input type="file" id="jsonFile" accept=".json" />
+                <div class="quick-select">
+                    <button onclick="loadQuickJson('SamT_transcript.json')">📄 加载 SamT 字幕</button>
+                </div>
+            </div>
+            <div class="file-input-group">
+                <label for="videoFile">选择视频文件:</label>
+                <input type="file" id="videoFile" accept="video/*" />
+                <div class="quick-select">
+                    <button onclick="loadQuickVideo('recordings/SamT_2025-05-29 11-31-06.mkv')">🎬 加载 SamT 视频</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
