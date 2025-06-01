@@ -2,6 +2,7 @@
 let subtitles = [];
 let videoPlayer = null;
 let currentActiveSubtitle = null;
+let isJumping = false; // 添加跳转状态标记
 
 // DOM 元素
 const subtitleList = document.getElementById('subtitleList');
@@ -38,6 +39,19 @@ function setupEventListeners() {
     
     videoPlayer.addEventListener('error', function(e) {
         console.error('视频加载错误:', e);
+    });
+    
+    // 添加播放/暂停事件监听，清除跳转状态
+    videoPlayer.addEventListener('play', function() {
+        if (!isJumping) {
+            console.log('用户手动播放');
+        }
+    });
+    
+    videoPlayer.addEventListener('pause', function() {
+        if (!isJumping) {
+            console.log('用户手动暂停');
+        }
     });
 }
 
@@ -113,7 +127,7 @@ function renderSubtitles() {
         const endTime = formatTime(subtitle.end);
         
         return `
-            <div class="subtitle-item" data-index="${index}" onclick="jumpToTime(${subtitle.start})">
+            <div class="subtitle-item" data-index="${index}" data-start-time="${subtitle.start}">
                 <div class="subtitle-time">
                     <span class="time-range">${startTime} - ${endTime}</span>
                     <span class="speaker-tag ${speakerClass}">${subtitle.speaker}</span>
@@ -124,6 +138,28 @@ function renderSubtitles() {
     }).join('');
     
     subtitleList.innerHTML = html;
+    
+    // 重新绑定点击事件
+    bindSubtitleClickEvents();
+}
+
+// 绑定字幕点击事件
+function bindSubtitleClickEvents() {
+    const subtitleItems = subtitleList.querySelectorAll('.subtitle-item');
+    
+    subtitleItems.forEach(item => {
+        // 移除可能存在的旧事件监听器
+        item.removeEventListener('click', handleSubtitleClick);
+        // 添加新的事件监听器
+        item.addEventListener('click', handleSubtitleClick);
+    });
+}
+
+// 处理字幕点击事件
+function handleSubtitleClick(event) {
+    const startTime = parseFloat(event.currentTarget.dataset.startTime);
+    console.log('用户点击字幕，跳转到时间:', startTime);
+    jumpToTime(startTime);
 }
 
 // 更新字幕统计信息
@@ -142,10 +178,55 @@ function updateSubtitleStats() {
 
 // 跳转到指定时间
 function jumpToTime(time) {
-    if (videoPlayer) {
+    console.log(`跳转到时间: ${formatTime(time)}`);
+    
+    if (!videoPlayer) {
+        console.error('视频播放器不存在');
+        return;
+    }
+    
+    // 设置跳转状态
+    isJumping = true;
+    
+    // 记录用户是否在播放状态
+    const wasPlaying = !videoPlayer.paused;
+    
+    // 检查时间是否有效
+    if (isNaN(time) || time < 0) {
+        console.error('无效的时间值:', time);
+        isJumping = false;
+        return;
+    }
+    
+    // 检查可搜索范围
+    if (videoPlayer.seekable.length > 0) {
+        const seekableEnd = videoPlayer.seekable.end(0);
+        
+        if (time > seekableEnd) {
+            console.warn(`目标时间超出范围，跳转到: ${formatTime(seekableEnd - 1)}`);
+            time = Math.max(0, seekableEnd - 1);
+        }
+    } else {
+        console.warn('视频缓冲中，限制跳转范围');
+        time = Math.min(time, 5);
+    }
+    
+    // 执行跳转
+    try {
         videoPlayer.currentTime = time;
-        videoPlayer.play();
-        console.log(`跳转到时间: ${formatTime(time)}`);
+        
+        // 短暂延迟后检查跳转结果并恢复播放状态
+        setTimeout(() => {
+            if (wasPlaying && Math.abs(videoPlayer.currentTime - time) <= 2) {
+                videoPlayer.play();
+            }
+            // 清除跳转状态
+            isJumping = false;
+        }, 200);
+        
+    } catch (error) {
+        console.error('跳转失败:', error);
+        isJumping = false;
     }
 }
 
@@ -153,6 +234,11 @@ function jumpToTime(time) {
 function updateCurrentTime() {
     const currentTime = videoPlayer.currentTime;
     currentTimeDisplay.textContent = formatTime(currentTime);
+    
+    // 在跳转过程中，减少不必要的字幕更新操作
+    if (isJumping) {
+        return;
+    }
     
     // 找到当前时间对应的字幕
     const currentSubtitle = findCurrentSubtitle(currentTime);
@@ -192,11 +278,13 @@ function highlightCurrentSubtitle(currentSubtitle) {
             subtitleElement.classList.add('active');
             currentActiveSubtitle = subtitleElement;
             
-            // 滚动到当前字幕
-            subtitleElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center'
-            });
+            // 滚动到当前字幕（只在非跳转状态下滚动，避免干扰用户操作）
+            if (!isJumping) {
+                subtitleElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
         }
     } else {
         currentActiveSubtitle = null;
@@ -239,51 +327,8 @@ document.addEventListener('keydown', function(event) {
             event.preventDefault();
             videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5);
             break;
-            
-        case 'ArrowUp':
-            event.preventDefault();
-            jumpToPreviousSubtitle();
-            break;
-            
-        case 'ArrowDown':
-            event.preventDefault();
-            jumpToNextSubtitle();
-            break;
     }
 });
-
-// 跳转到上一条字幕
-function jumpToPreviousSubtitle() {
-    const currentTime = videoPlayer.currentTime;
-    const currentIndex = subtitles.findIndex(s => currentTime >= s.start && currentTime <= s.end);
-    
-    if (currentIndex > 0) {
-        jumpToTime(subtitles[currentIndex - 1].start);
-    } else if (currentIndex === -1 && subtitles.length > 0) {
-        // 如果当前不在任何字幕时间段内，找到最近的前一条
-        const previousSubtitle = subtitles.reverse().find(s => s.start < currentTime);
-        if (previousSubtitle) {
-            jumpToTime(previousSubtitle.start);
-        }
-        subtitles.reverse(); // 恢复原顺序
-    }
-}
-
-// 跳转到下一条字幕
-function jumpToNextSubtitle() {
-    const currentTime = videoPlayer.currentTime;
-    const currentIndex = subtitles.findIndex(s => currentTime >= s.start && currentTime <= s.end);
-    
-    if (currentIndex !== -1 && currentIndex < subtitles.length - 1) {
-        jumpToTime(subtitles[currentIndex + 1].start);
-    } else if (currentIndex === -1 && subtitles.length > 0) {
-        // 如果当前不在任何字幕时间段内，找到最近的下一条
-        const nextSubtitle = subtitles.find(s => s.start > currentTime);
-        if (nextSubtitle) {
-            jumpToTime(nextSubtitle.start);
-        }
-    }
-}
 
 // 快速加载JSON文件
 function loadQuickJson(filename) {
@@ -325,4 +370,4 @@ console.log('会议录制转录播放器已加载');
 console.log('快捷键说明:');
 console.log('- 空格键: 播放/暂停');
 console.log('- 左右箭头: 快退/快进 5秒');
-console.log('- 上下箭头: 上一条/下一条字幕'); 
+console.log('- 点击字幕: 跳转到对应时间点'); 
