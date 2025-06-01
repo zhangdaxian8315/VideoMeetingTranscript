@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 尝试加载默认的字幕文件
     loadDefaultSubtitles();
     
+    // 尝试加载默认的视频文件
+    loadDefaultVideo();
+    
     // 设置事件监听器
     setupEventListeners();
 });
@@ -34,23 +37,55 @@ function setupEventListeners() {
     
     // 视频加载事件
     videoPlayer.addEventListener('loadedmetadata', function() {
-        console.log('视频加载完成');
+        console.log('✅ 视频元数据加载完成');
+        console.log(`  时长: ${formatTime(videoPlayer.duration)}`);
+        console.log(`  尺寸: ${videoPlayer.videoWidth}x${videoPlayer.videoHeight}`);
+    });
+    
+    videoPlayer.addEventListener('loadeddata', function() {
+        console.log('✅ 视频数据加载完成');
+    });
+    
+    videoPlayer.addEventListener('canplay', function() {
+        console.log('✅ 视频可以开始播放');
+    });
+    
+    videoPlayer.addEventListener('canplaythrough', function() {
+        console.log('✅ 视频可以流畅播放');
+    });
+    
+    // Seek 相关事件
+    videoPlayer.addEventListener('seeking', function() {
+        console.log('🔍 Seeking 开始:', formatTime(videoPlayer.currentTime));
+    });
+    
+    videoPlayer.addEventListener('seeked', function() {
+        console.log('✅ Seeking 完成:', formatTime(videoPlayer.currentTime));
+    });
+    
+    // 进度事件
+    videoPlayer.addEventListener('progress', function() {
+        if (videoPlayer.buffered.length > 0) {
+            const bufferedEnd = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
+            console.log(`📊 缓冲进度: ${formatTime(bufferedEnd)} / ${formatTime(videoPlayer.duration)}`);
+        }
     });
     
     videoPlayer.addEventListener('error', function(e) {
-        console.error('视频加载错误:', e);
+        console.error('❌ 视频加载错误:', e);
+        console.error('错误详情:', videoPlayer.error);
     });
     
     // 添加播放/暂停事件监听，清除跳转状态
     videoPlayer.addEventListener('play', function() {
         if (!isJumping) {
-            console.log('用户手动播放');
+            console.log('▶️ 用户手动播放');
         }
     });
     
     videoPlayer.addEventListener('pause', function() {
         if (!isJumping) {
-            console.log('用户手动暂停');
+            console.log('⏸️ 用户手动暂停');
         }
     });
 }
@@ -75,6 +110,47 @@ async function loadDefaultSubtitles() {
                 <p>请使用下方的文件选择器加载字幕文件</p>
             </div>
         `;
+    }
+}
+
+// 尝试加载默认视频文件
+async function loadDefaultVideo() {
+    try {
+        // 优先尝试加载混合音轨版的MP4视频
+        const videoPath = 'recordings/SamT_2025-05-29_11-31-06_mixed.mp4';
+        const response = await fetch(videoPath, { method: 'HEAD' });
+        if (response.ok) {
+            videoPlayer.src = videoPath;
+            console.log('成功加载默认视频文件: SamT_2025-05-29_11-31-06_mixed.mp4 (混合音轨版)');
+        } else {
+            throw new Error('默认视频文件不存在');
+        }
+    } catch (error) {
+        console.log('未找到混合音轨版视频，尝试优化版');
+        // 尝试加载优化版MP4文件
+        try {
+            const fallbackPath = 'recordings/SamT_2025-05-29_11-31-06_web.mp4';
+            const response = await fetch(fallbackPath, { method: 'HEAD' });
+            if (response.ok) {
+                videoPlayer.src = fallbackPath;
+                console.log('加载备用视频文件: SamT_2025-05-29_11-31-06_web.mp4 (优化版)');
+            } else {
+                throw new Error('备用视频文件不存在');
+            }
+        } catch (fallbackError) {
+            console.log('未找到优化版视频，尝试原版');
+            // 最后尝试原版MKV文件
+            try {
+                const originalPath = 'recordings/SamT_2025-05-29 11-31-06.mkv';
+                const response = await fetch(originalPath, { method: 'HEAD' });
+                if (response.ok) {
+                    videoPlayer.src = originalPath;
+                    console.log('加载原版视频文件: SamT_2025-05-29 11-31-06.mkv');
+                }
+            } catch (originalError) {
+                console.log('未找到任何默认视频文件');
+            }
+        }
     }
 }
 
@@ -178,11 +254,47 @@ function updateSubtitleStats() {
 
 // 跳转到指定时间
 function jumpToTime(time) {
-    console.log(`跳转到时间: ${formatTime(time)}`);
+    console.log('=== SEEK 调试开始 ===');
+    console.log(`目标时间: ${formatTime(time)} (${time}秒)`);
     
     if (!videoPlayer) {
         console.error('视频播放器不存在');
         return;
+    }
+    
+    // 详细的视频状态信息
+    console.log('视频状态信息:');
+    console.log(`  当前时间: ${formatTime(videoPlayer.currentTime)} (${videoPlayer.currentTime}秒)`);
+    console.log(`  视频总时长: ${formatTime(videoPlayer.duration)} (${videoPlayer.duration}秒)`);
+    console.log(`  就绪状态: ${videoPlayer.readyState} (0=无数据, 1=元数据, 2=当前帧, 3=未来帧, 4=足够数据)`);
+    console.log(`  网络状态: ${videoPlayer.networkState} (0=空, 1=空闲, 2=加载中, 3=无源)`);
+    console.log(`  是否暂停: ${videoPlayer.paused}`);
+    console.log(`  是否结束: ${videoPlayer.ended}`);
+    console.log(`  缓冲范围数量: ${videoPlayer.buffered.length}`);
+    
+    // 详细的缓冲信息
+    if (videoPlayer.buffered.length > 0) {
+        console.log('缓冲范围:');
+        for (let i = 0; i < videoPlayer.buffered.length; i++) {
+            const start = videoPlayer.buffered.start(i);
+            const end = videoPlayer.buffered.end(i);
+            console.log(`  范围${i}: ${formatTime(start)} - ${formatTime(end)} (${start.toFixed(2)} - ${end.toFixed(2)}秒)`);
+        }
+    } else {
+        console.log('缓冲范围: 无');
+    }
+    
+    // 详细的可搜索信息
+    console.log(`可搜索范围数量: ${videoPlayer.seekable.length}`);
+    if (videoPlayer.seekable.length > 0) {
+        console.log('可搜索范围:');
+        for (let i = 0; i < videoPlayer.seekable.length; i++) {
+            const start = videoPlayer.seekable.start(i);
+            const end = videoPlayer.seekable.end(i);
+            console.log(`  范围${i}: ${formatTime(start)} - ${formatTime(end)} (${start.toFixed(2)} - ${end.toFixed(2)}秒)`);
+        }
+    } else {
+        console.log('可搜索范围: 无');
     }
     
     // 设置跳转状态
@@ -190,6 +302,7 @@ function jumpToTime(time) {
     
     // 记录用户是否在播放状态
     const wasPlaying = !videoPlayer.paused;
+    console.log(`播放状态: ${wasPlaying ? '播放中' : '已暂停'}`);
     
     // 检查时间是否有效
     if (isNaN(time) || time < 0) {
@@ -199,34 +312,65 @@ function jumpToTime(time) {
     }
     
     // 检查可搜索范围
+    let adjustedTime = time;
     if (videoPlayer.seekable.length > 0) {
         const seekableEnd = videoPlayer.seekable.end(0);
+        const seekableStart = videoPlayer.seekable.start(0);
+        
+        console.log(`目标时间检查: ${time} 是否在 [${seekableStart}, ${seekableEnd}] 范围内`);
         
         if (time > seekableEnd) {
-            console.warn(`目标时间超出范围，跳转到: ${formatTime(seekableEnd - 1)}`);
-            time = Math.max(0, seekableEnd - 1);
+            adjustedTime = Math.max(0, seekableEnd - 1);
+            console.warn(`目标时间超出范围，调整为: ${formatTime(adjustedTime)} (${adjustedTime}秒)`);
+        } else if (time < seekableStart) {
+            adjustedTime = seekableStart;
+            console.warn(`目标时间小于起始时间，调整为: ${formatTime(adjustedTime)} (${adjustedTime}秒)`);
+        } else {
+            console.log('目标时间在可搜索范围内');
         }
     } else {
-        console.warn('视频缓冲中，限制跳转范围');
-        time = Math.min(time, 5);
+        console.warn('没有可搜索范围，可能视频还在加载中');
+        adjustedTime = Math.min(time, 5);
+        console.log(`限制跳转到: ${formatTime(adjustedTime)} (${adjustedTime}秒)`);
     }
     
     // 执行跳转
+    console.log(`准备执行 seek: ${videoPlayer.currentTime} -> ${adjustedTime}`);
+    
     try {
-        videoPlayer.currentTime = time;
+        const beforeSeek = videoPlayer.currentTime;
+        videoPlayer.currentTime = adjustedTime;
+        const afterSeek = videoPlayer.currentTime;
+        
+        console.log(`Seek 执行结果:`);
+        console.log(`  设置前: ${formatTime(beforeSeek)} (${beforeSeek.toFixed(3)}秒)`);
+        console.log(`  设置值: ${formatTime(adjustedTime)} (${adjustedTime.toFixed(3)}秒)`);
+        console.log(`  设置后: ${formatTime(afterSeek)} (${afterSeek.toFixed(3)}秒)`);
+        console.log(`  是否成功: ${Math.abs(afterSeek - adjustedTime) < 1 ? '是' : '否'}`);
         
         // 短暂延迟后检查跳转结果并恢复播放状态
         setTimeout(() => {
-            if (wasPlaying && Math.abs(videoPlayer.currentTime - time) <= 2) {
+            const finalTime = videoPlayer.currentTime;
+            console.log(`延迟后检查:`);
+            console.log(`  最终时间: ${formatTime(finalTime)} (${finalTime.toFixed(3)}秒)`);
+            console.log(`  与目标差异: ${Math.abs(finalTime - adjustedTime).toFixed(3)}秒`);
+            
+            if (wasPlaying && Math.abs(finalTime - adjustedTime) <= 2) {
+                console.log('恢复播放状态');
                 videoPlayer.play();
+            } else {
+                console.log('不恢复播放状态');
             }
+            
             // 清除跳转状态
             isJumping = false;
+            console.log('=== SEEK 调试结束 ===');
         }, 200);
         
     } catch (error) {
-        console.error('跳转失败:', error);
+        console.error('Seek 执行失败:', error);
         isJumping = false;
+        console.log('=== SEEK 调试结束 (错误) ===');
     }
 }
 
