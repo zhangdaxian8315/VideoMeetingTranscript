@@ -537,32 +537,58 @@ async function loadVideoFromFolder(folderName) {
         const possibleVideoFiles = [
             `${basePath}/${folderNameWithUnderscores}_mixed.mp4`,
             `${basePath}/${folderNameWithUnderscores}.mp4`,
-            `${basePath}/${folderName}.mkv`,
-            `${basePath}/${folderNameWithUnderscores}.mkv`
+            `${basePath}/${folderName}.mkv`, // 保持原文件夹名（带空格）
+            `${basePath}/${folderNameWithUnderscores}.mkv` // 下划线版本
         ];
         
+        console.log('文件夹名:', folderName);
+        console.log('下划线版本:', folderNameWithUnderscores);
         console.log('可能的视频文件路径:', possibleVideoFiles);
         
         let videoLoaded = false;
         for (const videoPath of possibleVideoFiles) {
             try {
                 console.log('尝试加载视频文件:', videoPath);
-                videoPlayer.src = videoPath;
                 
-                // 监听加载成功事件
-                videoPlayer.addEventListener('loadedmetadata', function() {
-                    console.log('✅ 成功加载视频文件:', videoPath);
+                // 使用Promise等待视频加载结果
+                const loadResult = await new Promise((resolve) => {
+                    const tempVideo = document.createElement('video');
+                    
+                    const onLoad = () => {
+                        tempVideo.removeEventListener('loadedmetadata', onLoad);
+                        tempVideo.removeEventListener('error', onError);
+                        resolve(true);
+                    };
+                    
+                    const onError = () => {
+                        tempVideo.removeEventListener('loadedmetadata', onLoad);
+                        tempVideo.removeEventListener('error', onError);
+                        resolve(false);
+                    };
+                    
+                    tempVideo.addEventListener('loadedmetadata', onLoad);
+                    tempVideo.addEventListener('error', onError);
+                    tempVideo.src = videoPath;
+                    
+                    // 5秒超时
+                    setTimeout(() => {
+                        tempVideo.removeEventListener('loadedmetadata', onLoad);
+                        tempVideo.removeEventListener('error', onError);
+                        resolve(false);
+                    }, 5000);
+                });
+                
+                if (loadResult) {
+                    console.log('✅ 视频文件验证成功:', videoPath);
+                    videoPlayer.src = videoPath;
                     videoLoaded = true;
-                }, { once: true });
+                    break;
+                } else {
+                    console.log('❌ 视频文件验证失败:', videoPath);
+                }
                 
-                // 监听加载失败事件
-                videoPlayer.addEventListener('error', function() {
-                    console.log('❌ 视频文件加载失败:', videoPath);
-                }, { once: true });
-                
-                break; // 设置第一个路径后退出循环
             } catch (error) {
-                console.log('视频文件设置失败:', videoPath, error);
+                console.log('❌ 视频文件设置失败:', videoPath, error);
             }
         }
         
