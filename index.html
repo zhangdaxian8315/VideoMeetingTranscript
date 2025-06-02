@@ -3,73 +3,478 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>会议录制转录播放器</title>
-    <link rel="stylesheet" href="style.css">
+    <title>视频会议记录中心</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .stat-item {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .meetings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .meeting-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .meeting-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border-color: #667eea;
+        }
+
+        .meeting-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .meeting-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+
+        .meeting-info h3 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .meeting-date {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .meeting-details {
+            margin-top: 15px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .detail-label {
+            color: #666;
+        }
+
+        .detail-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .meeting-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #666;
+            border: 1px solid #e9ecef;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.6;
+        }
+
+        .error-message {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            header h1 {
+                font-size: 2rem;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .meetings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎬 会议录制转录播放器</h1>
-            <p>点击右侧字幕可跳转到对应时间点</p>
+            <h1>🎬 视频会议记录中心</h1>
+            <p>管理和回顾您的所有会议记录</p>
         </header>
-        
-        <main class="main-content">
-            <!-- 左侧视频播放器 -->
-            <div class="video-section">
-                <div class="video-container">
-                    <video id="videoPlayer" controls>
-                        <p>请使用下方的文件选择器选择视频文件</p>
-                    </video>
-                </div>
-                
-                <div class="video-info">
-                    <div class="current-time">
-                        <span>当前时间: </span>
-                        <span id="currentTimeDisplay">00:00</span>
-                    </div>
-                    <div class="current-speaker">
-                        <span>当前说话人: </span>
-                        <span id="currentSpeaker">-</span>
-                    </div>
-                </div>
+
+        <div class="stats" id="statsContainer">
+            <div class="stat-item">
+                <span class="stat-number" id="totalMeetings">-</span>
+                <div class="stat-label">总会议数</div>
             </div>
-            
-            <!-- 右侧字幕列表 -->
-            <div class="subtitle-section">
-                <div class="subtitle-header">
-                    <h2>📝 转录字幕</h2>
-                    <div class="subtitle-stats">
-                        <span id="subtitleCount">加载中...</span>
-                    </div>
-                </div>
-                
-                <div class="subtitle-list" id="subtitleList">
-                    <div class="loading">正在加载字幕数据...</div>
-                </div>
+            <div class="stat-item">
+                <span class="stat-number" id="totalDuration">-</span>
+                <div class="stat-label">总时长</div>
             </div>
-        </main>
-        
-        <!-- 文件选择器 -->
-        <div class="file-selector">
-            <div class="file-input-group">
-                <label for="jsonFile">选择字幕文件 (JSON):</label>
-                <input type="file" id="jsonFile" accept=".json" />
-                <div class="quick-select">
-                    <button onclick="loadQuickJson('SamT_transcript.json')">📄 加载 SamT 字幕</button>
-                </div>
+            <div class="stat-item">
+                <span class="stat-number" id="recentMeetings">-</span>
+                <div class="stat-label">最近7天</div>
             </div>
-            <div class="file-input-group">
-                <label for="videoFile">选择视频文件:</label>
-                <input type="file" id="videoFile" accept="video/*" />
-                <div class="quick-select">
-                    <button onclick="loadQuickVideo('recordings/SamT_2025-05-29_11-31-06_mixed.mp4')">🎬 加载 SamT 视频 (混合音轨版)</button>
-                    <button onclick="loadQuickVideo('recordings/SamT_2025-05-29_11-31-06_web.mp4')">🎵 加载 SamT 视频 (优化版)</button>
-                    <button onclick="loadQuickVideo('recordings/SamT_2025-05-29 11-31-06.mkv')">📹 加载 SamT 视频 (原版)</button>
-                </div>
+        </div>
+
+        <div id="meetingsContainer">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>正在扫描会议记录...</p>
             </div>
         </div>
     </div>
-    
-    <script src="script.js?v=20250601"></script>
+
+    <script>
+        // 全局变量
+        let meetings = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMeetings();
+        });
+
+        // 加载会议记录
+        async function loadMeetings() {
+            try {
+                console.log('开始扫描会议记录...');
+                
+                const mockMeetings = await scanRecordingsDirectory();
+                meetings = mockMeetings.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                updateStats();
+                renderMeetings();
+                
+            } catch (error) {
+                console.error('加载会议记录失败:', error);
+                showError('加载会议记录失败，请检查 recordings 目录是否存在');
+            }
+        }
+
+        // 模拟扫描目录（本地运行版本）
+        async function scanRecordingsDirectory() {
+            // 本地运行时使用模拟数据，匹配实际文件夹结构
+            const mockData = [
+                {
+                    name: 'SamT_2025-05-29 11-31-06',
+                    displayName: 'SamT_2025-05-29 11-31-06',
+                    date: '2025-05-29T11:31:06',
+                    duration: '24:04',
+                    folderName: 'SamT_2025-05-29 11-31-06',
+                    hasVideo: true,
+                    hasSubtitle: true
+                },
+                {
+                    name: 'Pearl_2025-05-31 17-59-59',
+                    displayName: 'Pearl_2025-05-31 17-59-59',
+                    date: '2025-05-31T17:59:59',
+                    duration: '28:15',
+                    folderName: 'Pearl_2025-05-31 17-59-59',
+                    hasVideo: true,
+                    hasSubtitle: true
+                }
+            ];
+
+            console.log('本地运行模式：使用实际文件夹数据');
+            return mockData;
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            const totalMeetings = meetings.length;
+            const totalMinutes = meetings.reduce((sum, meeting) => {
+                const [minutes, seconds] = meeting.duration.split(':').map(Number);
+                return sum + minutes + (seconds / 60);
+            }, 0);
+            
+            const recentMeetings = meetings.filter(meeting => {
+                const meetingDate = new Date(meeting.date);
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return meetingDate >= weekAgo;
+            }).length;
+
+            document.getElementById('totalMeetings').textContent = totalMeetings;
+            document.getElementById('totalDuration').textContent = formatDuration(totalMinutes);
+            document.getElementById('recentMeetings').textContent = recentMeetings;
+        }
+
+        // 渲染会议列表
+        function renderMeetings() {
+            const container = document.getElementById('meetingsContainer');
+            
+            if (meetings.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <h3>暂无会议记录</h3>
+                        <p>recordings 目录中没有找到会议记录</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 只显示最近的3个会议（可以修改为显示全部）
+            const displayMeetings = meetings.slice(0, 3);
+            
+            const html = `
+                <div class="meetings-grid">
+                    ${displayMeetings.map(meeting => createMeetingCard(meeting)).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // 创建会议卡片
+        function createMeetingCard(meeting) {
+            const date = new Date(meeting.date);
+            const formattedDate = date.toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            const statusIcon = meeting.hasVideo && meeting.hasSubtitle ? '✅' : 
+                              meeting.hasVideo ? '⚠️' : '❌';
+            
+            return `
+                <div class="meeting-card" onclick="openMeeting('${meeting.folderName}', ${meeting.hasVideo && meeting.hasSubtitle})">
+                    <div class="meeting-header">
+                        <div class="meeting-icon">${statusIcon}</div>
+                        <div class="meeting-info">
+                            <h3>${meeting.displayName}</h3>
+                            <div class="meeting-date">${formattedDate}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="meeting-details">
+                        <div class="detail-row">
+                            <span class="detail-label">时长:</span>
+                            <span class="detail-value">${meeting.duration}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">视频:</span>
+                            <span class="detail-value">${meeting.hasVideo ? '✅ 可用' : '❌ 缺失'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">字幕:</span>
+                            <span class="detail-value">${meeting.hasSubtitle ? '✅ 可用' : '❌ 缺失'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="meeting-actions">
+                        <button class="btn btn-primary" ${!meeting.hasVideo || !meeting.hasSubtitle ? 'disabled' : ''}>
+                            🎬 观看回放
+                        </button>
+                        <button class="btn btn-secondary" onclick="event.stopPropagation(); showMeetingInfo('${meeting.name}')">
+                            📋 详情
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 打开会议播放器
+        function openMeeting(folderName, isAvailable) {
+            if (!isAvailable) {
+                alert('该会议的视频或字幕文件缺失，无法播放');
+                return;
+            }
+            
+            const params = new URLSearchParams({
+                folder: folderName
+            });
+            
+            window.location.href = `player.html?${params.toString()}`;
+        }
+
+        // 显示会议详情
+        function showMeetingInfo(meetingName) {
+            const meeting = meetings.find(m => m.name === meetingName);
+            if (meeting) {
+                alert(`会议详情:\n\n名称: ${meeting.displayName}\n时间: ${new Date(meeting.date).toLocaleString('zh-CN')}\n时长: ${meeting.duration}\n\n视频文件: ${meeting.folderName}`);
+            }
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const container = document.getElementById('meetingsContainer');
+            container.innerHTML = `
+                <div class="error-message">
+                    <strong>错误:</strong> ${message}
+                </div>
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <h3>加载失败</h3>
+                    <p>请刷新页面重试</p>
+                </div>
+            `;
+        }
+
+        // 格式化时长
+        function formatDuration(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = Math.floor(minutes % 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${mins}m`;
+            } else {
+                return `${mins}m`;
+            }
+        }
+
+        console.log('视频会议记录中心已加载');
+    </script>
 </body>
 </html> 

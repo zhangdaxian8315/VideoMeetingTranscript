@@ -9,18 +9,33 @@ const subtitleList = document.getElementById('subtitleList');
 const subtitleCount = document.getElementById('subtitleCount');
 const currentTimeDisplay = document.getElementById('currentTimeDisplay');
 const currentSpeaker = document.getElementById('currentSpeaker');
-const jsonFileInput = document.getElementById('jsonFile');
-const videoFileInput = document.getElementById('videoFile');
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     videoPlayer = document.getElementById('videoPlayer');
     
-    // 尝试加载默认的字幕文件
-    loadDefaultSubtitles();
+    // 检查URL参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const folderParam = urlParams.get('folder');
+    const videoParam = urlParams.get('video');
+    const subtitleParam = urlParams.get('subtitle');
     
-    // 尝试加载默认的视频文件
-    loadDefaultVideo();
+    if (folderParam) {
+        // 从文件夹参数加载视频
+        console.log('从文件夹参数加载视频:', folderParam);
+        loadVideoFromFolder(folderParam);
+        // 显示提示用户手动加载字幕
+        showManualLoadPrompt(folderParam);
+    } else if (videoParam && subtitleParam) {
+        // 从URL参数加载（兼容旧方式）
+        console.log('从URL参数加载:', { video: videoParam, subtitle: subtitleParam });
+        loadFromUrlParams(videoParam, subtitleParam);
+    } else {
+        // 尝试加载默认视频
+        loadDefaultVideo();
+        // 显示手动加载提示
+        showManualLoadPrompt();
+    }
     
     // 设置事件监听器
     setupEventListeners();
@@ -31,9 +46,18 @@ function setupEventListeners() {
     // 视频时间更新事件
     videoPlayer.addEventListener('timeupdate', updateCurrentTime);
     
-    // 文件选择事件
-    jsonFileInput.addEventListener('change', handleJsonFileSelect);
-    videoFileInput.addEventListener('change', handleVideoFileSelect);
+    // 手动加载字幕按钮事件
+    const loadSubtitleBtn = document.getElementById('loadSubtitleBtn');
+    const subtitleFileInput = document.getElementById('subtitleFileInput');
+    
+    if (loadSubtitleBtn && subtitleFileInput) {
+        loadSubtitleBtn.addEventListener('click', function() {
+            console.log('用户点击加载字幕按钮');
+            subtitleFileInput.click(); // 触发文件选择器
+        });
+        
+        subtitleFileInput.addEventListener('change', handleSubtitleFileSelect);
+    }
     
     // 视频加载事件
     videoPlayer.addEventListener('loadedmetadata', function() {
@@ -92,94 +116,67 @@ function setupEventListeners() {
 
 // 尝试加载默认字幕文件
 async function loadDefaultSubtitles() {
-    try {
-        // 尝试加载 SamT_transcript.json
-        const response = await fetch('SamT_transcript.json');
-        if (response.ok) {
-            const data = await response.json();
+    console.log('=== 开始加载默认字幕文件 ===');
+    
+    const subtitlePaths = [
+        'recordings/SamT_2025-05-29 11-31-06/transcript/merged.json',
+        'recordings/Pearl_2025-05-31 17-59-59/transcript/merged.json',
+        'SamT_transcript.json' // 保留旧的备用文件
+    ];
+    
+    console.log('默认字幕路径列表:', subtitlePaths);
+    
+    for (const subtitlePath of subtitlePaths) {
+        try {
+            console.log(`尝试加载: ${subtitlePath}`);
+            const data = await loadJsonFile(subtitlePath);
+            console.log(`字幕数据长度: ${data.length}`);
             loadSubtitles(data);
-            console.log('成功加载默认字幕文件: SamT_transcript.json');
-        } else {
-            throw new Error('默认文件不存在');
+            console.log('✅ 成功加载默认字幕文件:', subtitlePath);
+            return; // 成功加载后退出
+        } catch (error) {
+            console.log('❌ 尝试加载字幕文件失败:', subtitlePath, error.message);
         }
-    } catch (error) {
-        console.log('未找到默认字幕文件，请手动选择');
-        subtitleList.innerHTML = `
-            <div class="loading">
-                <p>未找到默认字幕文件</p>
-                <p>请使用下方的文件选择器加载字幕文件</p>
-            </div>
-        `;
     }
+    
+    // 如果所有文件都加载失败
+    console.log('⚠️ 未找到任何默认字幕文件');
+    subtitleList.innerHTML = `
+        <div class="loading">
+            <p>未找到默认字幕文件</p>
+            <p>请检查文件路径或网络连接</p>
+        </div>
+    `;
 }
 
 // 尝试加载默认视频文件
 async function loadDefaultVideo() {
-    try {
-        // 优先尝试加载混合音轨版的MP4视频
-        const videoPath = 'recordings/SamT_2025-05-29_11-31-06_mixed.mp4';
-        const response = await fetch(videoPath, { method: 'HEAD' });
-        if (response.ok) {
-            videoPlayer.src = videoPath;
-            console.log('成功加载默认视频文件: SamT_2025-05-29_11-31-06_mixed.mp4 (混合音轨版)');
-        } else {
-            throw new Error('默认视频文件不存在');
-        }
-    } catch (error) {
-        console.log('未找到混合音轨版视频，尝试优化版');
-        // 尝试加载优化版MP4文件
+    // 本地运行时直接尝试加载文件，不进行HTTP检查
+    const videoPaths = [
+        'recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29_11-31-06_mixed.mp4',
+        'recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29 11-31-06.mkv',
+        'recordings/Pearl_2025-05-31 17-59-59/Pearl_2025-05-31 17-59-59.mkv'
+    ];
+    
+    for (const videoPath of videoPaths) {
         try {
-            const fallbackPath = 'recordings/SamT_2025-05-29_11-31-06_web.mp4';
-            const response = await fetch(fallbackPath, { method: 'HEAD' });
-            if (response.ok) {
-                videoPlayer.src = fallbackPath;
-                console.log('加载备用视频文件: SamT_2025-05-29_11-31-06_web.mp4 (优化版)');
-            } else {
-                throw new Error('备用视频文件不存在');
-            }
-        } catch (fallbackError) {
-            console.log('未找到优化版视频，尝试原版');
-            // 最后尝试原版MKV文件
-            try {
-                const originalPath = 'recordings/SamT_2025-05-29 11-31-06.mkv';
-                const response = await fetch(originalPath, { method: 'HEAD' });
-                if (response.ok) {
-                    videoPlayer.src = originalPath;
-                    console.log('加载原版视频文件: SamT_2025-05-29 11-31-06.mkv');
-                }
-            } catch (originalError) {
-                console.log('未找到任何默认视频文件');
-            }
+            videoPlayer.src = videoPath;
+            console.log(`尝试加载视频文件: ${videoPath}`);
+            
+            // 监听加载成功事件
+            videoPlayer.addEventListener('loadedmetadata', function() {
+                console.log(`成功加载视频文件: ${videoPath}`);
+            }, { once: true });
+            
+            // 监听加载失败事件
+            videoPlayer.addEventListener('error', function() {
+                console.log(`视频文件加载失败: ${videoPath}`);
+            }, { once: true });
+            
+            break; // 设置第一个路径后退出循环
+        } catch (error) {
+            console.log(`视频文件设置失败: ${videoPath}`, error);
         }
-    }
-}
-
-// 处理JSON文件选择
-function handleJsonFileSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                loadSubtitles(data);
-                console.log('成功加载字幕文件:', file.name);
-            } catch (error) {
-                alert('字幕文件格式错误，请检查JSON格式');
-                console.error('JSON解析错误:', error);
-            }
-        };
-        reader.readAsText(file);
-    }
-}
-
-// 处理视频文件选择
-function handleVideoFileSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const url = URL.createObjectURL(file);
-        videoPlayer.src = url;
-        console.log('成功加载视频文件:', file.name);
     }
 }
 
@@ -474,44 +471,184 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-// 快速加载JSON文件
-function loadQuickJson(filename) {
-    fetch(filename)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`无法加载文件: ${filename}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            loadSubtitles(data);
-            console.log(`快速加载字幕文件: ${filename}`);
-        })
-        .catch(error => {
-            alert(`加载字幕文件失败: ${error.message}`);
-            console.error('快速加载字幕失败:', error);
-        });
-}
-
-// 快速加载视频文件
-function loadQuickVideo(videoPath) {
-    videoPlayer.src = videoPath;
-    console.log(`快速加载视频文件: ${videoPath}`);
-    
-    // 监听视频加载事件
-    videoPlayer.addEventListener('loadeddata', function() {
-        console.log('视频加载成功');
-    }, { once: true });
-    
-    videoPlayer.addEventListener('error', function(e) {
-        console.error('视频加载失败:', e);
-        alert('视频加载失败，请检查文件路径或使用文件选择器手动选择视频文件');
-    }, { once: true });
-}
-
 // 调试信息
 console.log('会议录制转录播放器已加载');
 console.log('快捷键说明:');
 console.log('- 空格键: 播放/暂停');
 console.log('- 左右箭头: 快退/快进 5秒');
-console.log('- 点击字幕: 跳转到对应时间点'); 
+console.log('- 点击字幕: 跳转到对应时间点');
+
+// 从URL参数加载视频和字幕
+async function loadFromUrlParams(videoPath, subtitlePath) {
+    try {
+        // 加载字幕
+        console.log('加载字幕文件:', subtitlePath);
+        const subtitleData = await loadJsonFile(subtitlePath);
+        loadSubtitles(subtitleData);
+        console.log('成功加载字幕文件:', subtitlePath);
+        
+        // 加载视频 - 本地运行时直接设置源
+        console.log('加载视频文件:', videoPath);
+        videoPlayer.src = videoPath;
+        
+        // 监听视频加载事件
+        videoPlayer.addEventListener('loadedmetadata', function() {
+            console.log('成功加载视频文件:', videoPath);
+        }, { once: true });
+        
+        videoPlayer.addEventListener('error', function() {
+            console.error('视频文件加载失败:', videoPath);
+        }, { once: true });
+        
+    } catch (error) {
+        console.error('从URL参数加载失败:', error);
+        showLoadingError('加载失败: ' + error.message);
+        
+        // 回退到默认加载
+        loadDefaultSubtitles();
+        loadDefaultVideo();
+    }
+}
+
+// 显示加载错误
+function showLoadingError(message) {
+    subtitleList.innerHTML = `
+        <div class="loading error">
+            <p style="color: #dc3545;">❌ ${message}</p>
+            <p>正在尝试加载默认文件...</p>
+        </div>
+    `;
+}
+
+// 从文件夹加载视频
+async function loadVideoFromFolder(folderName) {
+    console.log('=== 开始从文件夹加载视频 ===');
+    console.log('文件夹名:', folderName);
+    
+    try {
+        // 更新页面标题
+        document.title = `${folderName} - 会议录制转录播放器`;
+        
+        // 构建文件路径
+        const basePath = `recordings/${folderName}`;
+        
+        // 查找视频文件（按优先级尝试不同格式）
+        const folderNameWithUnderscores = folderName.replace(/ /g, '_');
+        const possibleVideoFiles = [
+            `${basePath}/${folderNameWithUnderscores}_mixed.mp4`,
+            `${basePath}/${folderNameWithUnderscores}.mp4`,
+            `${basePath}/${folderName}.mkv`,
+            `${basePath}/${folderNameWithUnderscores}.mkv`
+        ];
+        
+        console.log('可能的视频文件路径:', possibleVideoFiles);
+        
+        let videoLoaded = false;
+        for (const videoPath of possibleVideoFiles) {
+            try {
+                console.log('尝试加载视频文件:', videoPath);
+                videoPlayer.src = videoPath;
+                
+                // 监听加载成功事件
+                videoPlayer.addEventListener('loadedmetadata', function() {
+                    console.log('✅ 成功加载视频文件:', videoPath);
+                    videoLoaded = true;
+                }, { once: true });
+                
+                // 监听加载失败事件
+                videoPlayer.addEventListener('error', function() {
+                    console.log('❌ 视频文件加载失败:', videoPath);
+                }, { once: true });
+                
+                break; // 设置第一个路径后退出循环
+            } catch (error) {
+                console.log('视频文件设置失败:', videoPath, error);
+            }
+        }
+        
+        if (!videoLoaded) {
+            console.warn('⚠️ 未能找到合适的视频文件格式');
+        }
+        
+        console.log('=== 视频加载完成 ===');
+        
+    } catch (error) {
+        console.error('=== 从文件夹加载视频失败 ===');
+        console.error('错误详情:', error);
+        
+        // 回退到默认加载
+        console.log('开始回退到默认视频加载...');
+        loadDefaultVideo();
+    }
+}
+
+// 处理手动选择的字幕文件
+function handleSubtitleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        console.log('用户选择字幕文件:', file.name);
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                console.log('字幕数据长度:', data.length);
+                loadSubtitles(data);
+                console.log('✅ 成功加载字幕文件:', file.name);
+            } catch (error) {
+                console.error('❌ 字幕文件格式错误:', error);
+                alert('字幕文件格式错误，请检查JSON格式');
+            }
+        };
+        
+        reader.onerror = function() {
+            console.error('❌ 文件读取失败');
+            alert('文件读取失败，请重试');
+        };
+        
+        reader.readAsText(file);
+    }
+}
+
+// 使用XMLHttpRequest加载JSON文件（解决CORS问题）
+function loadJsonFile(path) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', path, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200 || xhr.status === 0) { // status 0 for file:// protocol
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        resolve(data);
+                    } catch (e) {
+                        reject(new Error(`JSON解析失败: ${e.message}`));
+                    }
+                } else {
+                    reject(new Error(`HTTP错误: ${xhr.status}`));
+                }
+            }
+        };
+        xhr.onerror = function() {
+            reject(new Error('网络错误'));
+        };
+        xhr.send();
+    });
+}
+
+// 显示手动加载提示
+function showManualLoadPrompt(folderName) {
+    const message = folderName 
+        ? `已加载文件夹: ${folderName}` 
+        : '请选择字幕文件';
+    
+    subtitleList.innerHTML = `
+        <div class="loading">
+            <p>📁 ${message}</p>
+            <p>点击右上角的"📁 加载字幕"按钮选择字幕文件</p>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                支持的文件格式: JSON (.json)
+            </p>
+        </div>
+    `;
+} 
