@@ -119,8 +119,8 @@ async function loadDefaultSubtitles() {
     console.log('=== 开始加载默认字幕文件 ===');
     
     const subtitlePaths = [
-        'recordings/SamT_2025-05-29 11-31-06/transcript/merged.json',
-        'recordings/Pearl_2025-05-31 17-59-59/transcript/merged.json',
+        '../recordings/SamT_2025-05-29 11-31-06/transcript/merged.json',
+        '../recordings/Pearl_2025-05-31 17-59-59/transcript/merged.json',
         'SamT_transcript.json' // 保留旧的备用文件
     ];
     
@@ -153,9 +153,9 @@ async function loadDefaultSubtitles() {
 async function loadDefaultVideo() {
     // 本地运行时直接尝试加载文件，不进行HTTP检查
     const videoPaths = [
-        'recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29_11-31-06_mixed.mp4',
-        'recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29 11-31-06.mkv',
-        'recordings/Pearl_2025-05-31 17-59-59/Pearl_2025-05-31 17-59-59.mkv'
+        '../recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29_11-31-06_mixed.mp4',
+        '../recordings/SamT_2025-05-29 11-31-06/SamT_2025-05-29 11-31-06.mkv',
+        '../recordings/Pearl_2025-05-31 17-59-59/Pearl_2025-05-31 17-59-59.mkv'
     ];
     
     for (const videoPath of videoPaths) {
@@ -530,7 +530,7 @@ async function loadVideoFromFolder(folderName) {
         document.title = `${folderName} - 会议录制转录播放器`;
         
         // 构建文件路径
-        const basePath = `recordings/${folderName}`;
+        const basePath = `../recordings/${folderName}`;
         
         // 查找视频文件（按优先级尝试不同格式）
         const folderNameWithUnderscores = folderName.replace(/ /g, '_');
