@@ -1,6 +1,9 @@
 # 录制文件目录 - 包含大型视频文件，不需要版本控制
 recordings/
 
+# 测试文件目录 - 开发测试中间文件
+test_files/
+
 # macOS 系统文件
 .DS_Store
 .DS_Store?
