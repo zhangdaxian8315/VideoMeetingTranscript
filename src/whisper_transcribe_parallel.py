@@ -186,21 +186,42 @@ def main():
         parallel_time = time.time() - start_time
         print(f"⚡ 并行转录耗时: {parallel_time:.1f}秒")
         
-        # 合并并排序
-        print("\n🔄 合并和排序转录结果...")
-        all_transcriptions = merge_and_sort_transcriptions([self_transcriptions, other_transcriptions])
-        
-        # 输出到JSON文件
+        # 生成单独的输出文件路径
         output_path = Path(args.output)
         if not output_path.is_absolute():
             output_path = project_root / output_path
         
+        # 生成单独文件的路径
+        output_dir = output_path.parent
+        output_stem = output_path.stem
+        output_suffix = output_path.suffix
+        
+        self_output_path = output_dir / f"{output_stem}_自己{output_suffix}"
+        other_output_path = output_dir / f"{output_stem}_对方{output_suffix}"
+        
+        # 保存单独的转录结果
+        print("\n💾 保存单独转录结果...")
+        
+        with open(self_output_path, 'w', encoding='utf-8') as f:
+            json.dump(self_transcriptions, f, ensure_ascii=False, indent=2)
+        print(f"📄 自己的转录: {self_output_path}")
+        
+        with open(other_output_path, 'w', encoding='utf-8') as f:
+            json.dump(other_transcriptions, f, ensure_ascii=False, indent=2)
+        print(f"📄 对方的转录: {other_output_path}")
+        
+        # 合并并排序
+        print("\n🔄 合并和排序转录结果...")
+        all_transcriptions = merge_and_sort_transcriptions([self_transcriptions, other_transcriptions])
+        
+        # 输出合并的JSON文件
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(all_transcriptions, f, ensure_ascii=False, indent=2)
         
         print(f"\n✅ 转录完成！")
-        print(f"📄 输出文件: {output_path}")
+        print(f"📄 合并文件: {output_path}")
         print(f"📊 总计 {len(all_transcriptions)} 个语音片段")
+        print(f"📈 统计: 自己 {len(self_transcriptions)} 片段, 对方 {len(other_transcriptions)} 片段")
         
         # 显示前几个结果作为预览
         if all_transcriptions:
