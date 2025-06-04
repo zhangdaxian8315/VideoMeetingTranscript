@@ -13,6 +13,7 @@ import ssl
 import urllib.request
 import time
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor
 
 # 绕过SSL证书验证
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -305,11 +306,14 @@ def main():
     print("\n🎵 开始语音识别...")
     
     try:
-        # 转录自己的音频
-        self_transcriptions = transcribe_audio(self_audio, "自己", model)
-        
-        # 转录对方的音频
-        other_transcriptions = transcribe_audio(other_audio, "对方", model)
+        # 使用 ProcessPoolExecutor 并行转录两个音频
+        with ProcessPoolExecutor(max_workers=2) as executor:
+            self_future = executor.submit(transcribe_audio, self_audio, "自己", model)
+            other_future = executor.submit(transcribe_audio, other_audio, "对方", model)
+            
+            # 等待两个转录任务完成
+            self_transcriptions = self_future.result()
+            other_transcriptions = other_future.result()
         
         # 生成单独的输出文件路径
         output_path = Path(args.output)
