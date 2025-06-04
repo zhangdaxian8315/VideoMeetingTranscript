@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-使用OpenAI Whisper进行语音识别并生成结构化JSON文件
-"""
 
 import os
 import sys
 import json
 import argparse
 from pathlib import Path
-import ssl
-import urllib.request
 import time
+from faster_whisper import WhisperModel
+import logging
 from datetime import datetime
 
-# 绕过SSL证书验证
-ssl._create_default_https_context = ssl._create_unverified_context
-
-import whisper
-
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def format_time(seconds):
     """格式化时间显示"""
@@ -31,10 +29,9 @@ def format_time(seconds):
         hours = seconds / 3600
         return f"{hours:.1f}小时"
 
-
 def transcribe_audio(audio_file, speaker_name, model):
     """
-    使用Whisper转录音频文件
+    使用 Faster Whisper 转录音频文件
     
     Args:
         audio_file: 音频文件路径
@@ -50,54 +47,55 @@ def transcribe_audio(audio_file, speaker_name, model):
     file_size = os.path.getsize(audio_file) / (1024 * 1024)  # MB
     print(f"📊 音频文件大小: {file_size:.1f} MB")
     
-    # 使用Whisper进行转录，包含时间戳
-    print(f"🔄 开始Whisper转录处理...")
+    # 使用Faster Whisper进行转录，包含时间戳
+    print(f"🔄 开始Faster Whisper转录处理...")
     start_time = time.time()
     
     try:
-        result = model.transcribe(
+        segments, info = model.transcribe(
             str(audio_file),
-            word_timestamps=True,
             language='en',
             beam_size=5,
-            temperature=0.4,
-            condition_on_previous_text=False,
-            no_speech_threshold=0.2,
-            logprob_threshold=-2.0
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500)
         )
         
         processing_time = time.time() - start_time
-        print(f"⏱️ Whisper处理耗时: {format_time(processing_time)}")
+        print(f"⏱️ Faster Whisper处理耗时: {format_time(processing_time)}")
         
     except Exception as e:
-        print(f"❌ Whisper转录失败: {e}")
+        print(f"❌ Faster Whisper转录失败: {e}")
         raise e
     
     print(f"📝 开始处理转录结果...")
     transcriptions = []
     
     # 处理segments（句子级别的时间戳）
-    total_segments = len(result.get('segments', []))
+    total_segments = 0
     meaningful_segments = 0
-    print(f"📋 检测到 {total_segments} 个语音段落")
-    
     process_start_time = time.time()
+    segment_process_start = time.time()
     
-    for i, segment in enumerate(result['segments']):
-        # 每10个段落显示进度
-        if i % 10 == 0 and i > 0:
-            print(f"📈 处理进度: {i}/{total_segments} ({i/total_segments*100:.1f}%)")
+    for segment in segments:
+        total_segments += 1
         
-        text = segment['text'].strip()
         # 检查是否有实际内容（不是"Yeah"等无意义内容）
+        text = segment.text.strip()
         if text.lower() not in ["yeah", "um", "uh", "ah", "mm", "hmm"]:
             meaningful_segments += 1
+        
+        # 每10个段落显示进度和耗时
+        if total_segments % 10 == 0:
+            segment_time = time.time() - segment_process_start
+            print(f"📈 处理进度: {total_segments} 个段落 (耗时: {format_time(segment_time)})")
+            segment_process_start = time.time()
         
         # 过滤掉空的或太短的文本
         if text and len(text) > 0:
             transcriptions.append({
-                "start": round(segment['start'], 2),
-                "end": round(segment['end'], 2),
+                "start": round(segment.start, 2),
+                "end": round(segment.end, 2),
                 "text": text,
                 "speaker": speaker_name
             })
@@ -106,9 +104,9 @@ def transcribe_audio(audio_file, speaker_name, model):
     print(f"✅ {speaker_name} 转录完成，共 {len(transcriptions)} 个片段")
     print(f"📊 统计: 总段落数 {total_segments}, 有意义段落 {meaningful_segments}")
     print(f"⏱️ 结果处理耗时: {format_time(process_time)}")
+    print(f"⏱️ 平均每10个段落处理耗时: {format_time(process_time / (total_segments / 10))}")
     print(f"⏱️ 总耗时: {format_time(processing_time + process_time)}")
     return transcriptions
-
 
 def merge_and_sort_transcriptions(transcriptions_list):
     """
@@ -129,7 +127,6 @@ def merge_and_sort_transcriptions(transcriptions_list):
     all_transcriptions.sort(key=lambda x: x['start'])
     
     return all_transcriptions
-
 
 def find_audio_files(recordings_dir):
     """
@@ -161,12 +158,11 @@ def find_audio_files(recordings_dir):
     
     return None, None
 
-
 def main():
     """主函数"""
     total_start_time = time.time()
     
-    parser = argparse.ArgumentParser(description="使用Whisper进行语音识别并生成JSON文件")
+    parser = argparse.ArgumentParser(description="使用Faster Whisper进行语音识别并生成JSON文件")
     parser.add_argument("--self-audio", type=str, help="自己的音频文件路径")
     parser.add_argument("--other-audio", type=str, help="对方的音频文件路径")
     parser.add_argument("--single-audio", type=str, help="单独转录一个音频文件路径")
@@ -179,6 +175,16 @@ def main():
     # 获取项目根目录
     project_root = Path(__file__).parent.parent
     recordings_dir = project_root / "recordings"
+    
+    # 修改输出文件名，添加faster字段
+    if args.output:
+        output_path = Path(args.output)
+        if not output_path.is_absolute():
+            output_path = project_root / output_path
+        output_dir = output_path.parent
+        output_stem = output_path.stem.replace("_faster", "")  # 移除可能存在的faster字段
+        output_suffix = output_path.suffix
+        args.output = str(output_dir / f"{output_stem}_faster{output_suffix}")
     
     # 检查是否是单音频模式
     if args.single_audio:
@@ -193,12 +199,12 @@ def main():
         print(f"  🎤 音频文件: {single_audio.name}")
         print(f"  👤 说话人: {args.speaker_name}")
         
-        # 加载Whisper模型
-        print(f"\n🤖 加载Whisper模型: {args.model}")
+        # 加载Faster Whisper模型
+        print(f"\n🤖 加载Faster Whisper模型: {args.model}")
         print(f"⏳ 正在加载模型，请稍候...")
         model_load_start = time.time()
         try:
-            model = whisper.load_model(args.model)
+            model = WhisperModel(args.model, device="auto", compute_type="auto")
             model_load_time = time.time() - model_load_start
             print(f"✅ 模型加载成功 (耗时: {format_time(model_load_time)})")
         except Exception as e:
@@ -275,12 +281,11 @@ def main():
     print(f"  🎤 自己: {self_audio.name}")
     print(f"  🎤 对方: {other_audio.name}")
     
-    # 加载Whisper模型
-    print(f"\n🤖 加载Whisper模型: {args.model}")
-    print(f"⏳ 正在加载模型，请稍候...")
+    # 加载Faster Whisper模型
+    print(f"\n🤖 加载Faster Whisper模型: {args.model}")
     model_load_start = time.time()
     try:
-        model = whisper.load_model(args.model)
+        model = WhisperModel(args.model, device="auto", compute_type="auto")
         model_load_time = time.time() - model_load_start
         print(f"✅ 模型加载成功 (耗时: {format_time(model_load_time)})")
     except Exception as e:
@@ -304,11 +309,11 @@ def main():
         
         # 生成单独文件的路径
         output_dir = output_path.parent
-        output_stem = output_path.stem
+        output_stem = output_path.stem.replace("_faster", "")  # 移除可能存在的faster字段
         output_suffix = output_path.suffix
         
-        self_output_path = output_dir / f"{output_stem}_自己{output_suffix}"
-        other_output_path = output_dir / f"{output_stem}_对方{output_suffix}"
+        self_output_path = output_dir / f"{output_stem}_faster_自己{output_suffix}"
+        other_output_path = output_dir / f"{output_stem}_faster_对方{output_suffix}"
         
         # 保存单独的转录结果
         print("\n💾 保存单独转录结果...")
@@ -356,7 +361,6 @@ def main():
     
     total_time = time.time() - total_start_time
     print(f"\n⏱️ 总耗时: {format_time(total_time)}")
-
 
 if __name__ == "__main__":
     main() 
