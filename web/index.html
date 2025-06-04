@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -72,20 +72,25 @@
 
         .meetings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 30px;
         }
 
         .meeting-card {
             background: white;
             border-radius: 20px;
-            padding: 25px;
+            padding: 20px 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
             cursor: pointer;
             border: 2px solid transparent;
             width: 100%;
+            text-align: center;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .meeting-card:hover {
@@ -96,50 +101,117 @@
 
         .meeting-header {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 15px;
+            justify-content: center;
         }
 
-        .meeting-icon {
-            width: 50px;
-            height: 50px;
+        .teacher-avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 4px solid #fff;
+            transition: all 0.3s ease;
+        }
+
+        .teacher-avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+        }
+
+        .default-avatar {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
             background: linear-gradient(135deg, #667eea, #764ba2);
-            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            margin-right: 15px;
+            font-size: 3.5rem;
+            color: white;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 4px solid #fff;
+            transition: all 0.3s ease;
+        }
+
+        .default-avatar:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+        }
+
+        .meeting-info {
+            text-align: center;
         }
 
         .meeting-info h3 {
-            font-size: 1.3rem;
-            margin-bottom: 5px;
+            font-size: 1.6rem;
+            margin-bottom: 8px;
             color: #333;
+            font-weight: 600;
         }
 
         .meeting-date {
             color: #666;
+            font-size: 1rem;
+            margin-bottom: 6px;
+        }
+
+        .meeting-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             font-size: 0.9rem;
+            color: #888;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-ready {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+        }
+
+        .status-partial {
+            background: rgba(251, 191, 36, 0.1);
+            color: #d97706;
+        }
+
+        .status-missing {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
         }
 
         .meeting-actions {
             margin-top: 20px;
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            justify-content: center;
         }
 
         .btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: all 0.3s ease;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn-primary {
@@ -220,6 +292,44 @@
             
             .meetings-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .meeting-card {
+                min-height: 280px;
+                padding: 15px 8px;
+            }
+
+            .teacher-avatar {
+                width: 120px;
+                height: 120px;
+                margin-bottom: 12px;
+            }
+
+            .default-avatar {
+                width: 120px;
+                height: 120px;
+                font-size: 3rem;
+                margin-bottom: 12px;
+            }
+
+            .meeting-info h3 {
+                font-size: 1.4rem;
+                margin-bottom: 6px;
+            }
+
+            .meeting-date {
+                font-size: 0.9rem;
+                margin-bottom: 4px;
+            }
+
+            .meeting-meta {
+                font-size: 0.85rem;
+                gap: 8px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -380,29 +490,80 @@
 
         // 创建会议卡片
         function createMeetingCard(meeting) {
-            const statusIcon = meeting.hasVideo && meeting.hasSubtitle ? '✅' : 
-                              meeting.hasVideo ? '⚠️' : '❌';
+            const statusInfo = getStatusInfo(meeting);
+            const avatarPath = getAvatarPath(meeting.name);
             
             return `
                 <div class="meeting-card" onclick="openMeeting('${meeting.folderName}', ${meeting.hasVideo && meeting.hasSubtitle})">
                     <div class="meeting-header">
-                        <div class="meeting-icon">${statusIcon}</div>
+                        ${createAvatarElement(meeting.name, avatarPath)}
                         <div class="meeting-info">
                             <h3>${meeting.name}</h3>
-                            <div class="meeting-date">${meeting.displayDate}</div>
+                            <div class="meeting-date">${formatDisplayDate(meeting.displayDate)}</div>
+                            <div class="meeting-meta">
+                                <span>${meeting.duration !== '未知' ? meeting.duration : '24分钟'}</span>
+                                <span class="status-badge ${statusInfo.class}">
+                                    ${statusInfo.icon} ${statusInfo.text}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="meeting-actions">
-                        <button class="btn btn-primary" ${!meeting.hasVideo || !meeting.hasSubtitle ? 'disabled' : ''}>
-                            🎬 观看回放
-                        </button>
-                        <button class="btn btn-secondary" onclick="event.stopPropagation(); showMeetingInfo('${meeting.name}')">
-                            📋 详情
-                        </button>
                     </div>
                 </div>
             `;
+        }
+
+        // 获取头像路径
+        function getAvatarPath(teacherName) {
+            return `assets/avatars/${teacherName}_Image.png`;
+        }
+
+        // 创建头像元素
+        function createAvatarElement(teacherName, avatarPath) {
+            return `
+                <img class="teacher-avatar" 
+                     src="${avatarPath}" 
+                     alt="${teacherName}的头像"
+                     onerror="this.onerror=null; this.src='assets/avatars/Default_Image.png';">
+            `;
+        }
+
+        // 获取状态信息
+        function getStatusInfo(meeting) {
+            if (meeting.hasVideo && meeting.hasSubtitle) {
+                return {
+                    icon: '✅',
+                    text: '可播放',
+                    class: 'status-ready'
+                };
+            } else if (meeting.hasVideo) {
+                return {
+                    icon: '⚠️',
+                    text: '缺少字幕',
+                    class: 'status-partial'
+                };
+            } else {
+                return {
+                    icon: '❌',
+                    text: '文件缺失',
+                    class: 'status-missing'
+                };
+            }
+        }
+
+        // 格式化显示日期
+        function formatDisplayDate(displayDate) {
+            if (displayDate === '未知日期') return displayDate;
+            
+            try {
+                // 解析日期字符串 "YYYY-MM-DD HH-MM-SS"
+                const [datePart, timePart] = displayDate.split(' ');
+                const [year, month, day] = datePart.split('-');
+                const [hour, minute, second] = timePart.split('-');
+                
+                return `${year}年${month}月${day}日 ${hour}:${minute}:${second}`;
+            } catch (e) {
+                return displayDate;
+            }
         }
 
         // 打开会议播放器
