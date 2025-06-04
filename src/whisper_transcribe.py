@@ -55,6 +55,18 @@ def transcribe_audio(audio_file, speaker_name, model):
     start_time = time.time()
     
     try:
+        # 获取音频时长
+        import librosa
+        audio_duration = librosa.get_duration(path=str(audio_file))
+        print(f"⏱️ 音频时长: {format_time(audio_duration)}")
+        
+        # 预处理阶段
+        print(f"🔧 开始音频预处理...")
+        preprocess_start = time.time()
+        
+        # 执行转录
+        print(f"🤖 开始模型推理...")
+        inference_start = time.time()
         result = model.transcribe(
             str(audio_file),
             word_timestamps=True,
@@ -66,8 +78,10 @@ def transcribe_audio(audio_file, speaker_name, model):
             logprob_threshold=-2.0
         )
         
+        inference_time = time.time() - inference_start
         processing_time = time.time() - start_time
-        print(f"⏱️ Whisper处理耗时: {format_time(processing_time)}")
+        print(f"⏱️ 模型推理耗时: {format_time(inference_time)}")
+        print(f"⏱️ 总处理耗时: {format_time(processing_time)}")
         
     except Exception as e:
         print(f"❌ Whisper转录失败: {e}")
