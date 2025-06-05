@@ -75,7 +75,7 @@ def transcribe_audio(audio_file, speaker_name, model):
             beam_size=5,
             temperature=0.4,
             condition_on_previous_text=False,
-            no_speech_threshold=0.2,
+            no_speech_threshold=0.5,
             logprob_threshold=-2.0
         )
         
