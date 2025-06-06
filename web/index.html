@@ -364,6 +364,7 @@
         </div>
     </div>
 
+    <script src="recordings_list.js"></script>
     <script>
         // 全局变量
         let meetings = [];
@@ -376,17 +377,13 @@
         // 加载会议记录
         async function loadMeetings() {
             try {
-                console.log('开始扫描会议记录...');
-                
-                const mockMeetings = await scanRecordingsDirectory();
-                meetings = mockMeetings.sort((a, b) => new Date(b.date) - new Date(a.date));
-                
+                console.log('开始加载会议记录...');
+                meetings = recordingsList.sort((a, b) => new Date(b.date) - new Date(a.date));
                 updateStats();
                 renderMeetings();
-                
             } catch (error) {
                 console.error('加载会议记录失败:', error);
-                showError('加载会议记录失败，请检查 recordings 目录是否存在');
+                showError('加载会议记录失败');
             }
         }
 
@@ -411,31 +408,6 @@
                 displayDate: '未知日期',
                 isoDate: new Date().toISOString()
             };
-        }
-
-        // 模拟扫描目录（本地运行版本）
-        async function scanRecordingsDirectory() {
-            // 实际文件夹列表
-            const folderNames = [
-                'SamT_2025-05-29 11-31-06',
-                'Pearl_2025-05-31 17-59-59'
-            ];
-            
-            const mockData = folderNames.map(folderName => {
-                const parsed = parseFolderName(folderName);
-                return {
-                    name: parsed.name,
-                    date: parsed.isoDate,
-                    displayDate: parsed.displayDate,
-                    duration: '未知', // 实际使用时可以从文件信息获取
-                    folderName: folderName,
-                    hasVideo: true,
-                    hasSubtitle: true
-                };
-            });
-
-            console.log('本地运行模式：使用实际文件夹数据');
-            return mockData;
         }
 
         // 更新统计信息
