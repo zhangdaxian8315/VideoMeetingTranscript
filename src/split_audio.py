@@ -35,15 +35,20 @@ def find_silence_segments(audio: np.ndarray, sr: int,
             silent_segments.append((start_frame * 512 / sr, len(silent_frames) * 512 / sr))
     return silent_segments
 
-def find_best_split_point(audio: np.ndarray, sr: int, target_time: float, search_window: float = 10.0) -> float:
+def find_best_split_point(audio: np.ndarray, sr: int, target_time: float, search_window: float = 30.0) -> float:
     """
     在目标时间点附近找到最佳分割点（优先静音区，否则能量最低点）
+    Args:
+        audio: 音频数据
+        sr: 采样率
+        target_time: 目标分割时间点
+        search_window: 搜索窗口大小（秒），默认30秒
     Returns: 最佳分割点的时间戳
     """
     start_frame = max(0, int((target_time - search_window) * sr))
     end_frame = min(len(audio), int((target_time + search_window) * sr))
     search_audio = audio[start_frame:end_frame]
-    silent_segments = find_silence_segments(search_audio, sr)
+    silent_segments = find_silence_segments(search_audio, sr, min_silence_duration=1.0, silence_threshold=0.015)
     if silent_segments:
         # 找到最接近目标时间的静音段
         best_segment = min(silent_segments, key=lambda x: abs((x[0] + x[1])/2 - search_window))
@@ -71,7 +76,7 @@ def split_audio_file(input_file: str, output_dir: str, num_parts: int = 4) -> Li
     split_points = [0]
     for i in range(1, num_parts):
         target_time = i * target_length
-        split_point = find_best_split_point(audio, sr, target_time, search_window=10.0)
+        split_point = find_best_split_point(audio, sr, target_time, search_window=30.0)
         split_points.append(split_point)
     split_points.append(duration)
     
