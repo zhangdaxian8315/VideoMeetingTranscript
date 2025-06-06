@@ -22,31 +22,18 @@ def merge_continuous_segments(transcriptions):
     current = sorted_segments[0]
     
     for next_seg in sorted_segments[1:]:
-        # 如果是同一个说话人
+        # 如果当前片段和下一个片段是同一个说话人，就合并
         if current['speaker'] == next_seg['speaker']:
-            # 检查时间间隔
-            if next_seg['start'] - current['end'] < 5.5:
-                # 检查是否有对方的话穿插
-                has_interruption = False
-                for seg in sorted_segments:
-                    # 如果找到对方的话，且时间戳在当前片段和下一个片段之间
-                    if (seg['speaker'] != current['speaker'] and
-                        seg['start'] > current['start'] and
-                        seg['end'] < next_seg['end']):
-                        has_interruption = True
-                        break
-                
-                # 如果没有对方的话穿插，则合并
-                if not has_interruption:
-                    current = {
-                        'start': current['start'],
-                        'end': next_seg['end'],
-                        'text': current['text'] + ' ' + next_seg['text'],
-                        'speaker': current['speaker']
-                    }
-                    continue
+            # 合并文本
+            current['text'] += ' ' + next_seg['text']
+            # 更新结束时间
+            current['end'] = next_seg['end']
+            # 从列表中移除下一个片段
+            sorted_segments.remove(next_seg)
+            # 继续检查，因为可能有更多连续的片段需要合并
+            continue
         
-        # 如果不能合并，保存当前片段，并开始新的片段
+        # 如果不是同一个说话人，保存当前片段并移动到下一个
         merged_segments.append(current)
         current = next_seg
     
@@ -60,7 +47,7 @@ def merge_continuous_segments(transcriptions):
 def main():
     # 读取原始JSON文件
     input_file = Path("debug_audio/SamT_完整_优化参数_合并.json")
-    output_file = Path("debug_audio/SamT_完整_优化参数_合并_优化.json")
+    output_file = Path("debug_audio/SamT_完整_优化参数_合并_简化.json")
     
     print(f"📖 读取文件: {input_file}")
     with open(input_file, 'r', encoding='utf-8') as f:
