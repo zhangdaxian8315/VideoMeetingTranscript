@@ -6,8 +6,28 @@
 
 import os
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
+
+def get_video_duration(video_path):
+    """获取视频时长（分钟）"""
+    try:
+        # 使用ffprobe获取视频时长
+        cmd = [
+            'ffprobe',
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            str(video_path)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            duration = float(result.stdout.strip())
+            return f"{int(duration/60)}分钟"
+    except Exception as e:
+        print(f"警告: 无法读取视频时长 {video_path}: {e}")
+    return "未知"
 
 def scan_recordings():
     # 获取项目根目录
@@ -30,11 +50,18 @@ def scan_recordings():
                 name, date_str = item.name.rsplit('_', 1)
                 date = datetime.strptime(date_str, '%Y-%m-%d %H-%M-%S')
                 
+                # 查找视频文件
+                video_files = list(item.glob('*.mkv')) + list(item.glob('*.mp4'))
+                duration = "未知"
+                if video_files:
+                    # 读取第一个视频文件的时长
+                    duration = get_video_duration(video_files[0])
+                
                 meetings.append({
                     "name": name,
                     "date": date.isoformat(),
                     "displayDate": date.strftime('%Y-%m-%d %H-%M-%S'),
-                    "duration": "未知",
+                    "duration": duration,
                     "folderName": item.name,
                     "hasVideo": True,
                     "hasSubtitle": True
