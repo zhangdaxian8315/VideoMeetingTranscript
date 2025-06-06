@@ -6,6 +6,7 @@ import argparse
 from typing import List, Dict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import whisper
+import librosa
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -59,7 +60,7 @@ def parallel_transcribe(audio_parts: List[str],
     Returns:
         合并后的转录结果
     """
-    total_start_time = time.time()
+    start_time = time.time()
     
     # 创建输出目录
     os.makedirs(output_dir, exist_ok=True)
@@ -110,10 +111,9 @@ def parallel_transcribe(audio_parts: List[str],
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
     
-    total_time = time.time() - total_start_time
     logger.info(f"✅ 转录完成！")
     logger.info(f"📄 结果保存到: {output_file}")
-    logger.info(f"⏱️ 总耗时: {total_time/60:.1f}分钟")
+    logger.info(f"⏱️ 总耗时: {(time.time() - start_time)/60:.1f}分钟")
     
     return output
 

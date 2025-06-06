@@ -1,0 +1,4 @@
+debug_audio/transcription/test/SamT_完整_自己_part1_1_3min.wav
+debug_audio/transcription/test/SamT_完整_自己_part1_2_3min.wav
+debug_audio/transcription/test/SamT_完整_自己_part1_3_3min.wav
+debug_audio/transcription/test/SamT_完整_自己_part1_4_3min.wav 
