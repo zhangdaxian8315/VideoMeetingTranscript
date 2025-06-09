@@ -276,6 +276,63 @@
             margin-bottom: 20px;
         }
 
+        .transcript-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin: 20px;
+            max-height: 60vh;
+        }
+        
+        .transcript-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .transcript-item.active {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        
+        .speaker-tag {
+            min-width: 40px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+            margin-right: 8px;
+        }
+        
+        .speaker-self {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .speaker-other {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+        
+        .transcript-content {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .transcript-time {
+            font-size: 12px;
+            color: #666;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 15px;
@@ -585,6 +642,35 @@
             } else {
                 return `${mins}m`;
             }
+        }
+
+        function renderTranscript(transcript) {
+            const container = document.getElementById('transcriptContainer');
+            container.innerHTML = '';
+            
+            transcript.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'transcript-item';
+                div.dataset.start = item.start;
+                div.dataset.end = item.end;
+                
+                const speakerClass = item.speaker === '自己' ? 'speaker-self' : 'speaker-other';
+                const speakerText = item.speaker === '自己' ? '我' : '对方';
+                
+                div.innerHTML = `
+                    <span class="speaker-tag ${speakerClass}">${speakerText}</span>
+                    <span class="transcript-content">${item.text}</span>
+                    <span class="transcript-time">${formatTime(item.start)} - ${formatTime(item.end)}</span>
+                `;
+                
+                div.onclick = () => {
+                    const video = document.getElementById('videoPlayer');
+                    video.currentTime = item.start;
+                    video.play();
+                };
+                
+                container.appendChild(div);
+            });
         }
 
         console.log('视频会议记录中心已加载');

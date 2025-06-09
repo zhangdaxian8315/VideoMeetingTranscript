@@ -196,16 +196,15 @@ function renderSubtitles() {
     
     const html = subtitles.map((subtitle, index) => {
         const speakerClass = subtitle.speaker === '自己' ? 'speaker-self' : 'speaker-other';
+        const speakerText = subtitle.speaker === '自己' ? '我' : '对方';
         const startTime = formatTime(subtitle.start);
         const endTime = formatTime(subtitle.end);
         
         return `
             <div class="subtitle-item" data-index="${index}" data-start-time="${subtitle.start}">
-                <div class="subtitle-time">
-                    <span class="time-range">${startTime} - ${endTime}</span>
-                    <span class="speaker-tag ${speakerClass}">${subtitle.speaker}</span>
-                </div>
-                <div class="subtitle-text">${subtitle.text}</div>
+                <span class="speaker-tag ${speakerClass}">${speakerText}</span>
+                <span class="subtitle-content">${subtitle.text}</span>
+                <span class="subtitle-time">${startTime} - ${endTime}</span>
             </div>
         `;
     }).join('');
@@ -677,4 +676,28 @@ function showManualLoadPrompt(folderName) {
             </p>
         </div>
     `;
+}
+
+function renderSubtitle(subtitle) {
+    const div = document.createElement('div');
+    div.className = 'subtitle-item';
+    div.dataset.start = subtitle.start;
+    div.dataset.end = subtitle.end;
+    
+    const speakerClass = subtitle.speaker === '自己' ? 'speaker-self' : 'speaker-other';
+    const speakerText = subtitle.speaker === '自己' ? '我' : '对方';
+    
+    div.innerHTML = `
+        <span class="speaker-tag ${speakerClass}">${speakerText}</span>
+        <span class="subtitle-content">${subtitle.text}</span>
+        <span class="subtitle-time">${formatTime(subtitle.start)} - ${formatTime(subtitle.end)}</span>
+    `;
+    
+    div.onclick = () => {
+        const video = document.getElementById('videoPlayer');
+        video.currentTime = subtitle.start;
+        video.play();
+    };
+    
+    return div;
 } 

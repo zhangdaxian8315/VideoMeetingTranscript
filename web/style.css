@@ -147,33 +147,19 @@ header p {
     transition: all 0.3s ease;
     border-left: 4px solid transparent;
     background: #f8f9fa;
+    display: flex;
+    align-items: flex-start;
 }
 
 .subtitle-item:hover {
     background: #e3f2fd;
     border-left-color: #2196f3;
     transform: translateX(5px);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
 .subtitle-item.active {
     background: #e8f5e8;
     border-left-color: #4caf50;
-    box-shadow: 0 3px 15px rgba(76, 175, 80, 0.3);
-}
-
-.subtitle-time {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.time-range {
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
 }
 
 .speaker-tag {
@@ -181,6 +167,9 @@ header p {
     border-radius: 15px;
     font-size: 0.75rem;
     font-weight: bold;
+    margin-right: 12px;
+    min-width: 40px;
+    text-align: center;
 }
 
 .speaker-self {
@@ -193,10 +182,20 @@ header p {
     color: #f57c00;
 }
 
-.subtitle-text {
+.subtitle-content {
+    flex: 1;
     font-size: 1rem;
     line-height: 1.4;
     color: #333;
+}
+
+.subtitle-time {
+    font-size: 0.85rem;
+    color: #666;
+    margin-left: 12px;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
 }
 
 /* 加载状态 */
