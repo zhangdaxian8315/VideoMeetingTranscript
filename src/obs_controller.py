@@ -195,6 +195,9 @@ class OBSController:
                 # 转换 MKV 为 MP4
                 self.convert_to_mp4()
                 
+                # 整理录制文件（创建文件夹、移动MP4、删除MKV）
+                self.organize_recording_files()
+                
             else:
                 print("⏹️  停止录制视频")
         except Exception as e:
@@ -217,11 +220,12 @@ class OBSController:
             print(f"   源文件: {latest_mkv.name}")
             print(f"   目标文件: {mp4_path.name}")
             
-            # 使用 ffmpeg 进行无损转换（只改变容器格式，不重新编码）
+            # 使用 ffmpeg 进行无损转换（复制所有流，包括多音频轨道）
             cmd = [
                 'ffmpeg',
                 '-i', str(latest_mkv),
-                '-c', 'copy',  # 直接复制流，不重新编码
+                '-map', '0',  # 映射所有输入流
+                '-c', 'copy',  # 直接复制所有流，不重新编码
                 '-y',  # 覆盖已存在的文件
                 str(mp4_path)
             ]
@@ -245,6 +249,53 @@ class OBSController:
             print(f"转换视频格式时出错: {e}")
             print("⚠️  请手动使用以下命令转换:")
             print(f"   ffmpeg -i \"{latest_mkv}\" -c copy \"{mp4_path}\"")
+
+    def organize_recording_files(self):
+        """整理录制文件：创建文件夹、移动MP4、删除MKV"""
+        try:
+            # 查找最新的 MP4 文件（使用自定义前缀）
+            mp4_files = list(self.recordings_dir.glob(f"{self.prefix}_*.mp4"))
+            if not mp4_files:
+                print(f"⚠️  未找到需要整理的 MP4 文件（前缀: {self.prefix}）")
+                return
+                
+            latest_mp4 = max(mp4_files, key=lambda f: f.stat().st_mtime)
+            
+            # 获取文件名（不包含扩展名）作为文件夹名
+            folder_name = latest_mp4.stem  # 例如：Daxian_2024-01-15_14-30-25
+            target_folder = self.recordings_dir / folder_name
+            
+            print(f"\n📁 开始整理录制文件:")
+            print(f"   创建文件夹: {folder_name}")
+            
+            # 创建文件夹
+            target_folder.mkdir(exist_ok=True)
+            
+            # 移动 MP4 文件到文件夹中
+            mp4_in_folder = target_folder / latest_mp4.name
+            latest_mp4.rename(mp4_in_folder)
+            print(f"   ✅ MP4 文件已移动到: {folder_name}/{latest_mp4.name}")
+            
+            # 查找并删除对应的 MKV 文件
+            mkv_name = latest_mp4.name.replace('.mp4', '.mkv')
+            mkv_path = self.recordings_dir / mkv_name
+            
+            if mkv_path.exists():
+                mkv_path.unlink()  # 删除文件
+                print(f"   🗑️  已删除 MKV 文件: {mkv_name}")
+            else:
+                print(f"   ⚠️  未找到对应的 MKV 文件: {mkv_name}")
+            
+            # 显示最终结果
+            mp4_size = mp4_in_folder.stat().st_size / 1024 / 1024  # MB
+            print(f"\n🎉 录制文件整理完成!")
+            print(f"📂 文件夹: {target_folder}")
+            print(f"🎬 视频文件: {latest_mp4.name} ({mp4_size:.2f} MB)")
+            print(f"🎯 可使用以下命令提取音频:")
+            print(f"   python3 src/extract_audio_tracks.py \"{mp4_in_folder}\"")
+            
+        except Exception as e:
+            print(f"整理录制文件时出错: {e}")
 
     def rename_latest_recording(self):
         """重命名最新的录制文件为带自定义前缀的格式"""
