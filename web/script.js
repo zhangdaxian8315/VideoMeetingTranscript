@@ -218,7 +218,7 @@ function renderSubtitles() {
         const speakerClass = subtitle.speaker === '自己' ? 'speaker-self' : 'speaker-other';
         const avatarSrc = subtitle.speaker === '自己' 
             ? 'assets/avatars/Daxian_Image.jpg'
-            : `assets/avatars/${teacherName}_Image.png`; // 使用正确的大小写
+            : `assets/avatars/${teacherName}_Image.png`;
         const startTime = formatTime(subtitle.start);
         const endTime = formatTime(subtitle.end);
         
@@ -228,7 +228,11 @@ function renderSubtitles() {
                     <img src="${avatarSrc}" alt="${subtitle.speaker}" onerror="this.src='assets/avatars/Default_Image.png'">
                 </span>
                 <span class="subtitle-content">${subtitle.text}</span>
-                <span class="subtitle-time">${startTime} - ${endTime}</span>
+                <span class="subtitle-time">
+                    <span class="time-start">${startTime}</span>
+                    <span class="time-divider">—</span>
+                    <span class="time-end">${endTime}</span>
+                </span>
             </div>
         `;
     }).join('');

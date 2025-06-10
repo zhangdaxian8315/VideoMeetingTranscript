@@ -7,56 +7,21 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎬 会议录制转录播放器</h1>
-            <p>点击右侧字幕可跳转到对应时间点</p>
-            <div class="header-actions">
-                <a href="index.html" class="btn-back">← 返回首页</a>
-            </div>
-        </header>
-        
-        <main class="main-content">
-            <!-- 左侧视频播放器 -->
-            <div class="video-section">
-                <div class="video-container">
-                    <video id="videoPlayer" controls>
-                        <p>正在加载视频文件...</p>
-                    </video>
-                </div>
-                
-                <div class="video-info">
-                    <div class="current-time">
-                        <span>当前时间: </span>
-                        <span id="currentTimeDisplay">00:00</span>
-                    </div>
-                    <div class="current-speaker">
-                        <span>当前说话人: </span>
-                        <span id="currentSpeaker">-</span>
-                    </div>
+    <div class="main-content">
+        <div class="video-section">
+            <video id="videoPlayer" controls></video>
+        </div>
+        <div class="divider"></div>
+        <div class="subtitle-section">
+            <div class="subtitle-header">
+                <div class="subtitle-actions">
+                    <button id="loadSubtitleBtn" class="btn-load">加载字幕</button>
+                    <input type="file" id="subtitleFileInput" accept=".json" style="display:none;" />
                 </div>
             </div>
-            
-            <!-- 右侧字幕列表 -->
-            <div class="subtitle-section">
-                <div class="subtitle-header">
-                    <h2>📝 转录字幕</h2>
-                    <div class="subtitle-stats">
-                        <span id="subtitleCount">加载中...</span>
-                    </div>
-                    <div class="subtitle-actions">
-                        <button id="loadSubtitleBtn" class="btn-load">📁 加载字幕</button>
-                        <input type="file" id="subtitleFileInput" accept=".json" style="display: none;">
-                    </div>
-                </div>
-                
-                <div class="subtitle-list" id="subtitleList">
-                    <div class="loading">正在加载字幕数据...</div>
-                </div>
-            </div>
-        </main>
+            <div class="subtitle-list" id="subtitleList"></div>
+        </div>
     </div>
-    
-    <script src="script.js?v=20250601"></script>
+    <script src="script.js"></script>
 </body>
 </html> 
