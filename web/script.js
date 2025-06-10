@@ -3,6 +3,10 @@ let subtitles = [];
 let videoPlayer = null;
 let currentActiveSubtitle = null;
 let isJumping = false; // 添加跳转状态标记
+let teacherName = ''; // 添加老师名字变量
+
+// 添加头像格式数组
+const avatarFormats = ['jpg', 'png', 'jpeg', 'svg'];
 
 // DOM 元素
 const subtitleList = document.getElementById('subtitleList');
@@ -19,25 +23,41 @@ document.addEventListener('DOMContentLoaded', function() {
     const folderParam = urlParams.get('folder');
     const videoParam = urlParams.get('video');
     const subtitleParam = urlParams.get('subtitle');
+    const teacherParam = urlParams.get('teacher'); // 获取老师参数
+    
+    console.log('URL参数:', {
+        folder: folderParam,
+        video: videoParam,
+        subtitle: subtitleParam,
+        teacher: teacherParam
+    });
+    
+    if (teacherParam) {
+        teacherName = teacherParam;
+        console.log('当前老师:', teacherName);
+    } else {
+        // 如果没有teacher参数，尝试从文件夹名中提取
+        if (folderParam) {
+            const match = folderParam.match(/^([^_]+)_/);
+            if (match) {
+                teacherName = match[1];
+                console.log('从文件夹名提取的老师名:', teacherName);
+            }
+        }
+    }
     
     if (folderParam) {
-        // 从文件夹参数加载视频
         console.log('从文件夹参数加载视频:', folderParam);
         loadVideoFromFolder(folderParam);
-        // 显示提示用户手动加载字幕
         showManualLoadPrompt(folderParam);
     } else if (videoParam && subtitleParam) {
-        // 从URL参数加载（兼容旧方式）
         console.log('从URL参数加载:', { video: videoParam, subtitle: subtitleParam });
         loadFromUrlParams(videoParam, subtitleParam);
     } else {
-        // 尝试加载默认视频
         loadDefaultVideo();
-        // 显示手动加载提示
         showManualLoadPrompt();
     }
     
-    // 设置事件监听器
     setupEventListeners();
 });
 
@@ -196,13 +216,17 @@ function renderSubtitles() {
     
     const html = subtitles.map((subtitle, index) => {
         const speakerClass = subtitle.speaker === '自己' ? 'speaker-self' : 'speaker-other';
-        const speakerText = subtitle.speaker === '自己' ? '我' : '对方';
+        const avatarSrc = subtitle.speaker === '自己' 
+            ? 'assets/avatars/Daxian_Image.jpg'
+            : `assets/avatars/${teacherName}_Image.png`; // 使用正确的大小写
         const startTime = formatTime(subtitle.start);
         const endTime = formatTime(subtitle.end);
         
         return `
             <div class="subtitle-item" data-index="${index}" data-start-time="${subtitle.start}">
-                <span class="speaker-tag ${speakerClass}">${speakerText}</span>
+                <span class="speaker-tag ${speakerClass}">
+                    <img src="${avatarSrc}" alt="${subtitle.speaker}" onerror="this.src='assets/avatars/Default_Image.png'">
+                </span>
                 <span class="subtitle-content">${subtitle.text}</span>
                 <span class="subtitle-time">${startTime} - ${endTime}</span>
             </div>
@@ -700,4 +724,37 @@ function renderSubtitle(subtitle) {
     };
     
     return div;
+}
+
+// 尝试加载不同格式的头像
+function getAvatarSrc(speaker) {
+    if (speaker === '自己') {
+        return 'assets/avatars/Daxian_Image.jpg';
+    }
+    
+    // 尝试不同的图片格式
+    const img = new Image();
+    let currentFormatIndex = 0;
+    
+    function tryNextFormat() {
+        if (currentFormatIndex >= avatarFormats.length) {
+            return 'assets/avatars/default_avatar.svg';
+        }
+        
+        const format = avatarFormats[currentFormatIndex];
+        const src = `assets/avatars/${teacherName}_Image.${format}`;
+        
+        img.onload = function() {
+            return src;
+        };
+        
+        img.onerror = function() {
+            currentFormatIndex++;
+            return tryNextFormat();
+        };
+        
+        img.src = src;
+    }
+    
+    return tryNextFormat();
 } 
