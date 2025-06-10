@@ -64,3 +64,6 @@ ENV/
 
 # 转录结果（如果不想版本控制）
 # *.json 
+
+# 忽略 recordings_list.js
+recordings_list.js 

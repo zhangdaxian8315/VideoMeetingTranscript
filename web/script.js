@@ -401,26 +401,16 @@ function jumpToTime(time) {
 // 更新当前时间显示和高亮字幕
 function updateCurrentTime() {
     const currentTime = videoPlayer.currentTime;
-    currentTimeDisplay.textContent = formatTime(currentTime);
-    
+
     // 在跳转过程中，减少不必要的字幕更新操作
     if (isJumping) {
         return;
     }
-    
+
     // 找到当前时间对应的字幕
     const currentSubtitle = findCurrentSubtitle(currentTime);
-    
-    // 更新当前说话人
-    if (currentSubtitle) {
-        currentSpeaker.textContent = currentSubtitle.speaker;
-        currentSpeaker.className = currentSubtitle.speaker === '自己' ? 'speaker-self' : 'speaker-other';
-    } else {
-        currentSpeaker.textContent = '-';
-        currentSpeaker.className = '';
-    }
-    
-    // 高亮当前字幕
+
+    // 只保留高亮逻辑
     highlightCurrentSubtitle(currentSubtitle);
 }
 
