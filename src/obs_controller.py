@@ -2,6 +2,7 @@ import os
 import time
 import socket
 import subprocess
+import argparse
 from datetime import datetime
 from pathlib import Path
 from obsws_python import ReqClient
@@ -50,14 +51,16 @@ def start_obs():
         return False
 
 class OBSController:
-    def __init__(self, password="zhang8315"):
+    def __init__(self, password="zhang8315", prefix="会议录制"):
         """初始化 OBS 控制器
         Args:
             password: OBS WebSocket 密码
+            prefix: 录制文件前缀，默认为"会议录制"
         """
         self.host = "localhost"
         self.port = 4455
         self.password = password
+        self.prefix = prefix  # 添加前缀属性
         self.client = None
         self.recording_start_time = None
         
@@ -124,17 +127,17 @@ class OBSController:
             
             print("✅ 录制目录设置完成")
             
-            # 生成预期的文件名（仅用于显示）
+            # 生成预期的文件名（使用自定义前缀）
             now = datetime.now()
-            self.target_filename = f"录制_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+            self.target_filename = f"{self.prefix}_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
             self.target_filepath = self.recordings_dir / self.target_filename
             
         except Exception as e:
             print(f"⚠️  设置录制目录失败: {e}")
             print("录制将使用 OBS 的默认设置")
-            # 设置默认目标文件名
+            # 设置默认目标文件名（使用自定义前缀）
             now = datetime.now()
-            self.target_filename = f"录制_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+            self.target_filename = f"{self.prefix}_{now.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
             self.target_filepath = self.recordings_dir / self.target_filename
 
     def get_recording_config(self):
@@ -189,14 +192,62 @@ class OBSController:
                 # 查找并重命名最新的录制文件
                 self.rename_latest_recording()
                 
+                # 转换 MKV 为 MP4
+                self.convert_to_mp4()
+                
             else:
                 print("⏹️  停止录制视频")
         except Exception as e:
             print(f"停止录制视频失败: {e}")
             raise
 
+    def convert_to_mp4(self):
+        """将最新的 MKV 文件转换为 MP4 格式"""
+        try:
+            # 查找最新的 MKV 文件（使用自定义前缀）
+            mkv_files = list(self.recordings_dir.glob(f"{self.prefix}_*.mkv"))
+            if not mkv_files:
+                print(f"⚠️  未找到需要转换的 MKV 文件（前缀: {self.prefix}）")
+                return
+                
+            latest_mkv = max(mkv_files, key=lambda f: f.stat().st_mtime)
+            mp4_path = latest_mkv.with_suffix('.mp4')
+            
+            print(f"\n🔄 开始转换视频格式:")
+            print(f"   源文件: {latest_mkv.name}")
+            print(f"   目标文件: {mp4_path.name}")
+            
+            # 使用 ffmpeg 进行无损转换（只改变容器格式，不重新编码）
+            cmd = [
+                'ffmpeg',
+                '-i', str(latest_mkv),
+                '-c', 'copy',  # 直接复制流，不重新编码
+                '-y',  # 覆盖已存在的文件
+                str(mp4_path)
+            ]
+            
+            # 执行转换命令
+            process = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True
+            )
+            
+            if process.returncode == 0:
+                # 转换成功，显示文件大小
+                mp4_size = mp4_path.stat().st_size / 1024 / 1024  # MB
+                print(f"✅ 转换完成: {mp4_path.name} ({mp4_size:.2f} MB)")
+                print(f"🎯 网页播放推荐使用 MP4 文件")
+            else:
+                print(f"⚠️  转换失败: {process.stderr}")
+                
+        except Exception as e:
+            print(f"转换视频格式时出错: {e}")
+            print("⚠️  请手动使用以下命令转换:")
+            print(f"   ffmpeg -i \"{latest_mkv}\" -c copy \"{mp4_path}\"")
+
     def rename_latest_recording(self):
-        """重命名最新的录制文件为带"会议录制"前缀的格式"""
+        """重命名最新的录制文件为带自定义前缀的格式"""
         try:
             # 查找最新的录制文件（所有.mkv文件）
             recording_files = list(self.recordings_dir.glob("*.mkv"))
@@ -210,9 +261,9 @@ class OBSController:
                     print("⚠️  最新文件不是刚录制的，跳过重命名")
                     return
                 
-                # 生成新的文件名
+                # 生成新的文件名（使用自定义前缀）
                 file_timestamp = datetime.fromtimestamp(latest_file.stat().st_mtime)
-                new_filename = f"会议录制_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
+                new_filename = f"{self.prefix}_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}.mkv"
                 new_filepath = self.recordings_dir / new_filename
                 
                 # 检查新文件名是否已存在
@@ -221,7 +272,7 @@ class OBSController:
                     # 添加序号避免冲突
                     counter = 1
                     while new_filepath.exists():
-                        new_filename = f"会议录制_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}_{counter}.mkv"
+                        new_filename = f"{self.prefix}_{file_timestamp.strftime('%Y-%m-%d_%H-%M-%S')}_{counter}.mkv"
                         new_filepath = self.recordings_dir / new_filename
                         counter += 1
                 
@@ -277,8 +328,21 @@ class OBSController:
             print("🔌 已断开 OBS 连接")
 
 def main():
-    # 创建控制器实例
-    controller = OBSController(password="zhang8315")
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='OBS 录制控制器')
+    parser.add_argument('prefix', nargs='?', 
+                       default='会议录制',
+                       help='录制文件前缀，默认为"会议录制"')
+    parser.add_argument('--password', 
+                       default='zhang8315',
+                       help='OBS WebSocket 密码，默认为"zhang8315"')
+    
+    args = parser.parse_args()
+    
+    # 创建控制器实例，使用自定义前缀
+    controller = OBSController(password=args.password, prefix=args.prefix)
+    
+    print(f"🎬 录制文件前缀设置为: {args.prefix}")
     
     try:
         # 连接 OBS（会自动启动 OBS 如果没有运行）
