@@ -73,8 +73,8 @@ class AudioTrackExtractor:
             self.logger.error(f"输入文件不存在: {file_path}")
             return False
             
-        if not file_path.lower().endswith('.mkv'):
-            self.logger.warning(f"输入文件不是.mkv格式: {file_path}")
+        if not file_path.lower().endswith(('.mkv', '.mp4')):
+            self.logger.warning(f"输入文件不是.mkv或.mp4格式: {file_path}")
             
         file_size = os.path.getsize(file_path)
         if file_size == 0:
@@ -186,12 +186,13 @@ class AudioTrackExtractor:
             self.logger.error(f"音轨 {track_index} 提取时出错: {e}")
             return False
     
-    def extract_dual_tracks(self, input_file: str) -> Tuple[bool, list]:
+    def extract_dual_tracks(self, input_file: str, track_indices: list = [0, 1]) -> Tuple[bool, list]:
         """
         提取双音轨
         
         Args:
             input_file: 输入视频文件路径
+            track_indices: 要提取的音轨索引列表，默认为[0, 1]
             
         Returns:
             Tuple[bool, list]: (是否成功, 输出文件列表)
@@ -209,18 +210,20 @@ class AudioTrackExtractor:
         if not audio_info:
             return False, []
         
-        if audio_info['audio_track_count'] < 2:
-            self.logger.error(f"音轨数量不足: 检测到 {audio_info['audio_track_count']} 个音轨，需要至少2个")
+        # 检查音轨数量是否足够
+        max_track_index = max(track_indices)
+        if audio_info['audio_track_count'] <= max_track_index:
+            self.logger.error(f"音轨数量不足: 检测到 {audio_info['audio_track_count']} 个音轨，需要至少 {max_track_index + 1} 个")
             return False, []
         
-        # 准备输出文件路径 - 修正音轨对应关系
+        # 准备输出文件路径
         input_path = Path(input_file)
         output_dir = input_path.parent
         base_name = input_path.stem
         
         output_files = [
-            output_dir / f"{base_name}_自己.wav",    # 音轨0 = 自己的声音
-            output_dir / f"{base_name}_对方.wav"     # 音轨1 = 对方的声音
+            output_dir / f"{base_name}_自己.wav",    # 第一个指定轨道 = 自己的声音
+            output_dir / f"{base_name}_对方.wav"     # 第二个指定轨道 = 对方的声音
         ]
         
         # 提取音轨
@@ -228,11 +231,13 @@ class AudioTrackExtractor:
         extracted_files = []
         
         for i, output_file in enumerate(output_files):
-            if self.extract_audio_track(input_file, str(output_file), i):
+            track_index = track_indices[i]
+            self.logger.info(f"提取音轨 {track_index} 到文件: {output_file.name}")
+            if self.extract_audio_track(input_file, str(output_file), track_index):
                 success_count += 1
                 extracted_files.append(str(output_file))
             else:
-                self.logger.error(f"提取音轨 {i} 失败")
+                self.logger.error(f"提取音轨 {track_index} 失败")
         
         if success_count == 2:
             self.logger.info("双音轨提取完成！")
@@ -245,18 +250,20 @@ class AudioTrackExtractor:
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="从OBS录制的.mkv视频文件中提取双音轨",
+        description="从OBS录制的.mkv/.mp4视频文件中提取双音轨",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例用法:
   python extract_audio_tracks.py ./recordings/meeting_20250528_140000.mkv
   python extract_audio_tracks.py /path/to/video.mkv --log-level DEBUG
+  python extract_audio_tracks.py /path/to/video.mkv --tracks 1 2
+  python extract_audio_tracks.py ./recordings/SamT_2025-06-11_07-49-26/SamT_2025-06-11_07-49-26.mp4 --tracks 1 2
         """
     )
     
     parser.add_argument(
         'input_file',
-        help='输入的.mkv视频文件路径'
+        help='输入的.mkv/.mp4视频文件路径'
     )
     
     parser.add_argument(
@@ -266,14 +273,28 @@ def main():
         help='日志级别 (默认: INFO)'
     )
     
+    parser.add_argument(
+        '--tracks',
+        nargs=2,
+        type=int,
+        default=[0, 1],
+        metavar=('TRACK1', 'TRACK2'),
+        help='要提取的音轨索引 (默认: 0 1)，例如: --tracks 1 2'
+    )
+    
     args = parser.parse_args()
     
     # 创建提取器
     extractor = AudioTrackExtractor(log_level=args.log_level)
     
+    # 显示将要提取的轨道信息
+    print(f"🎯 将提取音轨索引: {args.tracks[0]} 和 {args.tracks[1]}")
+    print(f"   音轨 {args.tracks[0]} → 自己.wav")
+    print(f"   音轨 {args.tracks[1]} → 对方.wav")
+    
     try:
         # 执行提取
-        success, output_files = extractor.extract_dual_tracks(args.input_file)
+        success, output_files = extractor.extract_dual_tracks(args.input_file, args.tracks)
         
         if success:
             print("\n✅ 音频轨道提取成功！")
